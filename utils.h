@@ -16,5 +16,34 @@
 #include <errno.h>
 #include <time.h>
 
+typedef struct {
+    char playerName[16]; // Nombre del jugador
+    unsigned int score; // Puntaje
+    unsigned int validMoves; // Cantidad de solicitudes de movimientos inválidas realizadas
+    unsigned int invalidMoves; // Cantidad de solicitudes de movimientos válidas realizadas
+    unsigned short posX, posY; // Coordenadas x e y en el tablero
+    pid_t pid; // Identificador de proceso
+    bool canMove; // Indica si el jugador tiene movimientos válidos disponibles
+} player_t;
+
+typedef struct {
+    unsigned short width; // Ancho del tablero
+    unsigned short height; // Alto del tablero
+    unsigned int cantPlayers; // Cantidad de jugadores
+    player_t players[9]; // Lista de jugadores
+    bool finished; // Indica si el juego se ha terminado
+    int board[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
+}game_t;
+
+typedef struct {
+    sem_t haveToPrint; // Se usa para indicarle a la vista que hay cambios por imprimir
+    sem_t finishedPrinting; // Se usa para indicarle al master que la vista terminó de imprimir
+    sem_t C; // Mutex para evitar inanición del master al acceder al estado
+    sem_t gameStatus; // Mutex para el estado del juego
+    sem_t E; // Mutex para la siguiente variable
+    unsigned int playersReading; // Cantidad de jugadores leyendo el estado
+} sync_t;
+    
+
 void * createSHM(char * name, size_t size);
 
