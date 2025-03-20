@@ -10,7 +10,6 @@ void * createSHM(char * name, size_t size){
         perror("ftruncate");
         exit(EXIT_FAILURE);
     }
-
     void *toRet= mmap(NULL, size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
     if(toRet == MAP_FAILED){
         perror("mmap");

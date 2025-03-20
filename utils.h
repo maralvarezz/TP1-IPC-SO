@@ -15,6 +15,7 @@
 #include <poll.h>
 #include <errno.h>
 #include <time.h>
+#include <stdbool.h>
 
 typedef struct {
     char playerName[16]; // Nombre del jugador
