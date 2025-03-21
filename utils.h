@@ -24,7 +24,7 @@ typedef struct {
     unsigned int invalidMoves; // Cantidad de solicitudes de movimientos válidas realizadas
     unsigned short posX, posY; // Coordenadas x e y en el tablero
     pid_t pid; // Identificador de proceso
-    bool canMove; // Indica si el jugador tiene movimientos válidos disponibles
+    bool blocked; // Indica si el jugador esta bloqueado
 } player_t;
 
 typedef struct {
@@ -40,11 +40,11 @@ typedef struct {
     sem_t haveToPrint; // Se usa para indicarle a la vista que hay cambios por imprimir
     sem_t finishedPrinting; // Se usa para indicarle al master que la vista terminó de imprimir
     sem_t C; // Mutex para evitar inanición del master al acceder al estado
-    sem_t gameStatus; // Mutex para el estado del juego
+    sem_t D; // Mutex para el estado del juego
     sem_t E; // Mutex para la siguiente variable
     unsigned int playersReading; // Cantidad de jugadores leyendo el estado
 } sync_t;
     
 
-void * createSHM(char * name, size_t size);
+void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
 

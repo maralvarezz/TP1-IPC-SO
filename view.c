@@ -1,4 +1,20 @@
 #include "./utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+#define PLAYER1     "\x1b[31m" //Rojo
+#define PLAYER2   "\x1b[38;2;0;100;0m" //Verde oscuro
+#define PLAYER3  "\x1b[38;2;255;255;102m" //Amarillo patito
+#define PLAYER4    "\x1b[34m" //Azul
+#define PLAYER5 "\x1b[35m" //Magenta
+#define PLAYER6    "\x1b[36m" //Cyan
+#define PLAYER7 "\x1b[38;2;255;0;255m" //Fucsia
+#define PLAYER8     "\x1b[38;2;255;165;0m"  // Naranja
+#define PLAYER9    "\x1b[38;2;144;238;144m"  // Verde claro
+#define RESET   "\x1b[0m"
 
 
 int main(int argc, char *argv[]){
@@ -6,34 +22,34 @@ int main(int argc, char *argv[]){
         perror("argumentos incorrectos");
         exit(1);
     }
-    int  w =  atoi(argv[1]);
+    char *colors[9] = {PLAYER1, PLAYER2, PLAYER3, PLAYER4, PLAYER5, PLAYER6, PLAYER7, PLAYER8, PLAYER9};
+    int w = atoi(argv[1]);
     int h = atoi(argv[2]);
     printf("in view\n");
     // pruebas ---------------------
-    int fd = shm_open("/game_state" , O_RDONLY |  O_CREAT, 0666);
-    if(fd ==-1){
-        perror("shm_open");
-        exit(EXIT_FAILURE);
-    }
-    game_t *game = (game_t*) mmap(NULL, sizeof(game_t) , PROT_READ, MAP_SHARED, fd, 0);
-    if( game == MAP_FAILED){
-        perror("mmap");
-        exit(EXIT_FAILURE);
-    }
-    for(int i=0;i<w*h;i++){
-        if(i%w == 0){
-            printf("\n");
-        }
-        int aux = game->board[i];
-        if(aux>0){
-            printf(" %d ",aux);
-        }else{
-            printf("p%d ",-aux+1);
-        }
+    //inicio: 
+    game_t* game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);    
+    sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);    
+    while(1){
+        sem_wait(&sems->haveToPrint);
+        for(int i=0;i<w*h;i++){
+            if(i%w == 0){
+                printf("\n");
+            }
+            int aux = game->board[i]; 
+            if(aux>0){
+                printf(" %d ",aux);
+            }else{
+                printf("%s" "██ " RESET, colors[-aux]);//⯀
+            }
         
+        }   
+        printf("\n");
+        sem_post(&sems->finishedPrinting); 
     }
-    
-
+    //goto inicio;
     //-------------------------------
+    printf("no mas view");
     return 0;
 }
+
