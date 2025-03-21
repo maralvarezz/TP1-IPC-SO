@@ -46,6 +46,9 @@ int main(int argc, char *argv[]){
         }   
         printf("\n");
         sem_post(&sems->finishedPrinting); 
+        if(game->finished){
+            break;
+        }
     }
     //goto inicio;
     //-------------------------------
