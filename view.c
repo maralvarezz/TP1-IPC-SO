@@ -18,7 +18,7 @@
 
 
 int main(int argc, char *argv[]){
-    if(argc != 3){ // siempre hay almenos un argumento que es el llamado al programa ./programa siempre es el primer argumento
+    if(argc != 3){ // siempre hay al menos un argumento que es el llamado al programa ./programa siempre es el primer argumento
         perror("argumentos incorrectos");
         exit(1);
     }

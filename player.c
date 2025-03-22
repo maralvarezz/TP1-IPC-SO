@@ -23,7 +23,7 @@ int main(int argc, char *argv[]){ // reciben w y h;
     pid_t pid = getpid();
     int found = 0;
     int playerNum;
-    for(int i= 0; i<game->cantPlayers && !found;i++){
+    for(int i= 0; i<game->cantPlayers && !found;i++){ //busca el jugador en el arreglo de jugadores
         if(game->players[i].pid==pid){
             found++;
             playerNum=i;
@@ -34,15 +34,15 @@ int main(int argc, char *argv[]){ // reciben w y h;
     
     // Escribir la solicitud en el pipe
     unsigned char dir = 0;
-    sem_wait(&sems->C);
+    sem_wait(&sems->C); 
     while(1){
-        if (write(1, &dir, sizeof(unsigned char)) == -1) {
+        if (write(1, &dir, sizeof(unsigned char)) == -1) { 
             perror("write");
             sem_post(&sems->C); // Liberar el semáforo si hay error
             return 1;
         }
         sem_post(&sems->D);
-        sem_post(&sems->C);
+        sem_post(&sems->C); 
         if(game->finished){
             break;
         }
