@@ -34,19 +34,20 @@ int main(int argc, char *argv[]){ // reciben w y h;
 
     
     // Escribir la solicitud en el pipe
-    unsigned char dir = 3;
-    int aux = playerNum;
+    unsigned char dir;
+    int aux = 15;
+    srand(playerNum*234);
+
     while(aux){// el master atiendo preguntando si hay algun moviemiento en orden, si no hay va a al siguiente
-        
+        if (playerNum==4){
+            sleep(4);
+        }
+        dir = rand()%8;
         move(&dir,sems);
         aux--;
     }
     close(WRITEFD);
-    if(game->players[playerNum].blocked){
-        perror("toy bloqueado");
-    }
     //write(1, EOF, sizeof(unsigned char));
-    
     return 0;
 
 }
