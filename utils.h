@@ -40,8 +40,8 @@ typedef struct {
     sem_t haveToPrint; // Se usa para indicarle a la vista que hay cambios por imprimir
     sem_t finishedPrinting; // Se usa para indicarle al master que la vista terminó de imprimir
     sem_t C; // Mutex para evitar inanición del master al acceder al estado
-    sem_t D; // Mutex para el estado del juego
-    sem_t E; // Mutex para la siguiente variable
+    sem_t D; // Mutex para ver el estado del juego(a quién le toca)
+    sem_t E; // Mutex para la siguiente variable 
     unsigned int playersReading; // Cantidad de jugadores leyendo el estado
 } sync_t;
     

@@ -40,7 +40,10 @@ int main(int argc, char *argv[]){
             if(aux>0){
                 printf(" %d ",aux);
             }else{
-                printf("%s" "██ " RESET, colors[-aux]);//⯀
+                unsigned short x,y;
+                x = game->players[-aux].posX;
+                y = game->players[-aux].posY;
+                printf("%s" "%s" RESET, colors[-aux],(i==y*w+x)?" ██":" ⯀ ");//⯀ ██
             }
         
         }   
@@ -52,7 +55,6 @@ int main(int argc, char *argv[]){
     }
     //goto inicio;
     //-------------------------------
-    printf("no mas view");
     return 0;
 }
 

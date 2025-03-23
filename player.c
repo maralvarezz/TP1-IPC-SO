@@ -1,6 +1,7 @@
 #include "./utils.h"
+#define WRITEFD 1
 
-int move(unsigned char direction,int pipefd[],sync_t *sems);
+void move(unsigned char * direction,sync_t *sems);
 
 int main(int argc, char *argv[]){ // reciben w y h;
     if(argc != 3){ // siempre hay almenos un argumento que es el llamado al programa ./programa siempre es el primer argumento
@@ -11,12 +12,12 @@ int main(int argc, char *argv[]){ // reciben w y h;
     int h = atoi(argv[2]);
 
     int pipefd[2];
-    game_t* game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);    
-    sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);    
+    game_t* game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);
+    sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
     //if (pipe(pipefd) == -1) {
         //perror("pipe");
         //exit(EXIT_FAILURE);
-    //}
+    //} 
     //close(pipefd[0]); // Cierra el extremo de lectura del pipe
     //dup2(pipefd[1], 1); // Redirige stdout al pipe
     //close(pipefd[1]); // Ya no se necesita este fd
@@ -33,21 +34,19 @@ int main(int argc, char *argv[]){ // reciben w y h;
 
     
     // Escribir la solicitud en el pipe
-    unsigned char dir = 0;
-    sem_wait(&sems->C); 
-    while(1){
-        if (write(1, &dir, sizeof(unsigned char)) == -1) { 
-            perror("write");
-            sem_post(&sems->C); // Liberar el semáforo si hay error
-            return 1;
-        }
-        sem_post(&sems->D);
-        sem_post(&sems->C); 
-        if(game->finished){
-            break;
-        }
+    unsigned char dir = 3;
+    int aux = playerNum;
+    while(aux){// el master atiendo preguntando si hay algun moviemiento en orden, si no hay va a al siguiente
+        
+        move(&dir,sems);
+        aux--;
+    }
+    close(WRITEFD);
+    if(game->players[playerNum].blocked){
+        perror("toy bloqueado");
     }
     //write(1, EOF, sizeof(unsigned char));
+    
     return 0;
 
 }
@@ -55,19 +54,15 @@ int main(int argc, char *argv[]){ // reciben w y h;
 //struct fd_pair pipe();
 //int pipe(int pipefd[2]);
 //int pipe2(int pipefd[2], int flags);
-//move() returns 0 if the move is completed, and returns 1 if the move is invalid
-int move(unsigned char direction,int pipefd[],sync_t *sems){
+void move(unsigned char * direction,sync_t *sems){
     sem_wait(&sems->C);
     // Escribir la solicitud en el pipe
-    printf("estoy re loco\n");
-    if (write(pipefd[0], &direction, sizeof(direction)) == -1) {
+    if (write(WRITEFD, direction, sizeof(unsigned char)) == -1) {
         perror("write");
-        sem_post(&sems->C); // Liberar el semáforo si hay error
-        return 1;
+        sem_post(&sems->C); 
+        return;
     }
-    sem_post(&sems->D);
     sem_post(&sems->C);
-
-    return 0;
+    return;
 }
 
