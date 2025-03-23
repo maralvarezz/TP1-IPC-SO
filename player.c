@@ -1,7 +1,9 @@
 #include "./utils.h"
 #define WRITEFD 1
+#define CANTDIR 8
 
 void move(unsigned char * direction,sync_t *sems);
+int getMove(game_t * game, int playerNum);
 
 int main(int argc, char *argv[]){ // reciben w y h;
     if(argc != 3){ // siempre hay almenos un argumento que es el llamado al programa ./programa siempre es el primer argumento
@@ -36,20 +38,25 @@ int main(int argc, char *argv[]){ // reciben w y h;
     // Escribir la solicitud en el pipe
     unsigned char dir;
     int aux = 15;
-    srand(playerNum*234);
+    int seedAux = rand();
+    srand(playerNum*seedAux);
 
     while(aux){// el master atiendo preguntando si hay algun moviemiento en orden, si no hay va a al siguiente
-        if (playerNum==4){
-            sleep(4);
-        }
+        //if (playerNum==4){
+           // sleep(4);
+        //}
         dir = rand()%8;
+        //dir = getMove(game,playerNum);
+        //if(dir == -1){
+        //   game->players[playerNum].blocked = true;
+         //   break;
+       // }
         move(&dir,sems);
         aux--;
     }
     close(WRITEFD);
     //write(1, EOF, sizeof(unsigned char));
     return 0;
-
 }
 
 //struct fd_pair pipe();
@@ -67,3 +74,28 @@ void move(unsigned char * direction,sync_t *sems){
     return;
 }
 
+/**
+    * Devuelve la direccion de movimiento y -1 si no hay direccion disponible.
+ */
+
+int getMove(game_t * game, int playerNum){
+    int max = 0;
+    int dir = -1;
+    unsigned short y = game->players[playerNum].posY;
+    unsigned short x = game->players[playerNum].posX;
+    
+    int w = game->width;
+    //Sacamos cual es el adyacente mayor
+    for(int a1 = -1; a1 <= 1; a1++){
+        for(int a2 = -1; a2 <= 1; a2++){
+            if(game->board[y*(w+a1)+x+a2] > max){
+                max = game->board[y*(w+a1)+x+a2];
+                dir = (y*(w+a1)+x+a2) % 9;
+                if(max == 9){
+                    return dir;
+                }
+            }
+        }
+    }
+    return dir;
+}
