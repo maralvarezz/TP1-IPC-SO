@@ -1,7 +1,7 @@
 #include "utils.h"
 
-void preSet(game_t * game, int * delay, int * timeout, int * seed, FILE ** view);
-void getBoard(game_t * game, int seed);
+void preSet(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view);
+void getBoard(game_t * game, unsigned int seed);
 
 int main(int argc, char *argv[]){
 
@@ -13,12 +13,12 @@ int main(int argc, char *argv[]){
     game_t* game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);
     sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
 
-    int delay, timeout, seed;
+    unsigned int delay, timeout, seed;
     FILE * view;
     //auxiliar para los players y sus files porque no se como se manejan
     //FILE * Fplayers[];
     preSet(game, &delay, &timeout, &seed, &view);
-    
+
     /*FALTA PROG DEFENSIVA (dio paja)*/
     for(int i = 1; i < argc; i++){
         if(strcmp(argv[i], "-w") == 0){
@@ -43,7 +43,12 @@ int main(int argc, char *argv[]){
             i++;
             //falta ver como sacar el pid teniendo solo el binario
             /* Esto supongo que esta mal 
-            for(int j = 0; j < argc ; j++){
+            strcmp(argv[i][0], "-") == 0 --> me guardo esto
+            for(int j = 0; j < argc; j++){
+                if(j > 9){
+                    perror("Maximo 9 jugadores");
+                    exit(1);
+                }
                 if(sizeof(argv[i]) == sizeof(FILE*)){
                     Fplayers[j] = fopen(argv[i], "r");
                     game->players[j].playerName = strconcat("Player", j);
@@ -73,7 +78,7 @@ int main(int argc, char *argv[]){
 
 }
 
-void preSet(game_t * game, int * delay, int * timeout, int * seed, FILE ** view){
+void preSet(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view){
     game->width = 10;
     game->height = 10;
     game->cantPlayers = 0;
@@ -84,7 +89,7 @@ void preSet(game_t * game, int * delay, int * timeout, int * seed, FILE ** view)
     *view = NULL;
 }
 
-void getBoard(game_t * game, int seed){
+void getBoard(game_t * game, unsigned int seed){
     srand(seed);
     int aux;
     for(int i = 0; i < (game->height * (game->width)); i++){
