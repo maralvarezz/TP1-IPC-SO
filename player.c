@@ -66,7 +66,7 @@ void move(unsigned char * direction,sync_t *sems){
     // Escribir la solicitud en el pipe
     if (write(WRITEFD, direction, sizeof(unsigned char)) == -1) {
         perror("write");
-       //sem_post(&sems->C); 
+       //sem_post(&sems->C);
         return;
     }
     //sem_post(&sems->C);
@@ -88,7 +88,6 @@ void move(unsigned char * direction,sync_t *sems){
                     {-1,-1}};
     int max = 0;
     *direct = 15; 
-    
     sem_wait(&sems->E);
     if(++sems->playersReading==1){
         sem_wait(&sems->D);

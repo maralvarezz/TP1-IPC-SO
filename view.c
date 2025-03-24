@@ -45,8 +45,14 @@ int main(int argc, char *argv[]){
                 y = game->players[-aux].posY;
                 printf("%s" "%s" RESET, colors[-aux],(i==y*w+x)?" ██":" ⯀ ");//⯀ ██
             }
-        
-        }   
+        }
+        printf("\n");
+
+        printf("\x1b[1mPuntajes:\x1b[0m\n"); 
+        for(int i=0; i < game->cantPlayers; i++){
+            printf("Jugador %d: %d\n", i+1, game->players[i].score);
+        }
+        printf("-------------------------------");
         printf("\n");
         sem_post(&sems->finishedPrinting); 
         if(game->finished){
