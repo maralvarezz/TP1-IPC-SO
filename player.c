@@ -37,11 +37,10 @@ int main(int argc, char *argv[]){ // reciben w y h;
 
     
     // Escribir la solicitud en el pipe
-    int aux = 15;
     //int seedAux = rand();
     //srand(playerNum*seedAux);
     unsigned char dir;
-    while(aux){// el master atiendo preguntando si hay algun moviemiento en orden, si no hay va a al siguiente
+    while(1){// el master atiendo preguntando si hay algun moviemiento en orden, si no hay va a al siguiente
         //if (playerNum==4){
            // sleep(4);
         //}
@@ -50,8 +49,9 @@ int main(int argc, char *argv[]){ // reciben w y h;
         //   game->players[playerNum].blocked = true;
             break;
         } 
+        
         move(&dir,sems);
-        aux--;
+        usleep(300000*game->cantPlayers);
     }
     close(WRITEFD);
     //write(1, EOF, sizeof(unsigned char));
