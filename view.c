@@ -59,6 +59,18 @@ int main(int argc, char *argv[]){
             break;
         }
     }
+    int winner = 0;
+    for (int i = 1; i < game->cantPlayers; i++) {
+        if (game->players[i].score > game->players[winner].score ||
+        (game->players[i].score == game->players[winner].score &&
+         game->players[i].validMoves < game->players[winner].validMoves) ||
+        (game->players[i].score == game->players[winner].score &&
+         game->players[i].validMoves == game->players[winner].validMoves &&
+         game->players[i].invalidMoves < game->players[winner].invalidMoves)) {
+        winner = i;
+        }
+    }
+    printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n",colors[winner], winner + 1, RESET);
     //goto inicio;
     //-------------------------------
     return 0;
