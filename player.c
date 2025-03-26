@@ -3,30 +3,22 @@
 #define CANTDIR 8
 
 void move(unsigned char * direction);
-void getMove(game_t * game,int w,int h, int playerNum,sync_t *sems,unsigned char * direct, int * totalMoves);
+void getMove(game_t * game,int w,int h, int playerNum,sync_t *sems,unsigned char * direct, int  totalMoves);
 int isBlocked(game_t * game, int playerNum, sync_t *sems);
 
 
 int main(int argc, char *argv[]){ // reciben w y h;
-    if(argc != 3){ // siempre hay almenos un argumento que es el llamado al programa ./programa siempre es el primer argumento
+    if(argc != 3){ 
         perror("argumentos incorrectos");
         exit(1);
     }
     int w = atoi(argv[1]);
     int h = atoi(argv[2]);
 
-    //int pipefd[2];
     game_t * game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);
     sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
     int totalMoves = 0;
     
-    //if (pipe(pipefd) == -1) {
-        //perror("pipe");
-        //exit(EXIT_FAILURE);
-    //} 
-    //close(pipefd[0]); // Cierra el extremo de lectura del pipe
-    //dup2(pipefd[1], 1); // Redirige stdout al pipe
-    //close(pipefd[1]); // Ya no se necesita este fd
     pid_t pid = getpid();
     int found = 0;
     int playerNum;
@@ -36,28 +28,18 @@ int main(int argc, char *argv[]){ // reciben w y h;
             playerNum=i;
         }
     }
-    //move(1,pipefd, sems);
-
-    
-    // Escribir la solicitud en el pipe
-    //int seedAux = rand();
-    //srand(playerNum*seedAux);
     unsigned char dir;
-    while(!isBlocked(game,playerNum,sems)){// el master atiendo preguntando si hay algun moviemiento en orden, si no hay va a al siguiente
-        getMove(game,w,h,playerNum, sems, &dir,&totalMoves);
+    while(!isBlocked(game,playerNum,sems)){
+        getMove(game,w,h,playerNum, sems, &dir,totalMoves);
         if(dir != 15){
             move(&dir);
+            totalMoves++;
         }
-        //usleep(250000*game->cantPlayers);
     }
     close(WRITEFD);
-    //write(1, EOF, sizeof(unsigned char));
     return 0;
 }
 
-//struct fd_pair pipe();
-//int pipe(int pipefd[2]);
-//int pipe2(int pipefd[2], int flags);
 void move(unsigned char * direction){
     // Escribir la solicitud en el pipe
     if (write(WRITEFD, direction, sizeof(unsigned char)) == -1) {
@@ -70,7 +52,7 @@ void move(unsigned char * direction){
     * Deja en direct la direccion de movimiento, 14 si no hay direccion disponible, y 15 si el juego termino
  */
 
- void getMove(game_t * game,int w,int h, int playerNum,sync_t *sems,unsigned char * direct, int * totalMoves){
+ void getMove(game_t * game,int w,int h, int playerNum,sync_t *sems,unsigned char * direct, int  totalMoves){
     int dirs[][2]= {{0,-1},
                     {1,-1},
                     {1,0},
@@ -91,7 +73,7 @@ void move(unsigned char * direction){
     
     unsigned short y = game->players[playerNum].posY;
     unsigned short x = game->players[playerNum].posX;
-    if(*totalMoves == game->players[playerNum].validMoves+game->players[playerNum].invalidMoves){
+    if(totalMoves == game->players[playerNum].validMoves+game->players[playerNum].invalidMoves){
     //Sacamos cual es el adyacente mayor
         int aux;
         for(int i = 0; i < 8; i++){
@@ -105,7 +87,6 @@ void move(unsigned char * direction){
                 }
          }    
         }
-        (*totalMoves)++;
     }
     
     sem_wait(&sems->E);

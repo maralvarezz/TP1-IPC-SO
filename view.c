@@ -60,6 +60,8 @@ int main(int argc, char *argv[]){
         }
     }
     int winner = 0;
+    int aux[9];
+    int cantWinners = 0;
     for (int i = 1; i < game->cantPlayers; i++) {
         if (game->players[i].score > game->players[winner].score ||
         (game->players[i].score == game->players[winner].score &&
@@ -67,10 +69,23 @@ int main(int argc, char *argv[]){
         (game->players[i].score == game->players[winner].score &&
          game->players[i].validMoves == game->players[winner].validMoves &&
          game->players[i].invalidMoves < game->players[winner].invalidMoves)) {
-        winner = i;
+         winner = i;
+        }else if(game->players[i].score == game->players[winner].score &&
+         game->players[i].validMoves == game->players[winner].validMoves &&
+         game->players[i].invalidMoves == game->players[winner].invalidMoves){
+            aux[cantWinners+1] = i;
+            cantWinners++;
         }
     }
-    printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n",colors[winner], winner, RESET);
+    aux[0] = winner;
+    if(cantWinners > 0){
+        printf("\x1b[1mEmpate entre los jugadores:\x1b[0m\n");
+        for(int i = 0; i < cantWinners+1; i++){
+            printf("%sJugador %d%s\n",colors[aux[i]], aux[i], RESET);
+        }
+    }else{
+        printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n",colors[winner], winner, RESET);
+    }
     //goto inicio;
     //-------------------------------
     return 0;
