@@ -14,7 +14,7 @@ int main(int argc, char *argv[]){ // reciben w y h;
     int w = atoi(argv[1]);
     int h = atoi(argv[2]);
 
-    int pipefd[2];
+    //int pipefd[2];
     game_t* game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);
     sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
     //if (pipe(pipefd) == -1) {
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]){ // reciben w y h;
         } 
         
         move(&dir,sems);
-        usleep(300000*game->cantPlayers);
+        usleep(250000*game->cantPlayers);
     }
     close(WRITEFD);
     //write(1, EOF, sizeof(unsigned char));
@@ -88,11 +88,13 @@ void move(unsigned char * direction,sync_t *sems){
                     {-1,-1}};
     int max = 0;
     *direct = 15; 
+    sem_wait(&sems->C);
     sem_wait(&sems->E);
     if(++sems->playersReading==1){
         sem_wait(&sems->D);
     }
     sem_post(&sems->E);
+    sem_post(&sems->C);
     
     unsigned short y = game->players[playerNum].posY;
     unsigned short x = game->players[playerNum].posX;

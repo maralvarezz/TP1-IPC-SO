@@ -50,7 +50,7 @@ int main(int argc, char *argv[]){
 
         printf("\x1b[1mPuntajes:\x1b[0m\n"); 
         for(int i=0; i < game->cantPlayers; i++){
-            printf("%sJugador %d %s: %d\n", colors[i], i+1, RESET, game->players[i].score);
+            printf("%sJugador %d %s: %d / %d / %d\n", colors[i], i, RESET, game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves);
         }
         printf("-------------------------------");
         printf("\n");
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]){
         winner = i;
         }
     }
-    printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n",colors[winner], winner + 1, RESET);
+    printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n",colors[winner], winner, RESET);
     //goto inicio;
     //-------------------------------
     return 0;
