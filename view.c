@@ -28,7 +28,7 @@ int main(int argc, char *argv[]){
     printf("in view\n");
     // pruebas ---------------------
     //inicio: 
-    game_t* game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);    
+    game_t * game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t) + sizeof(int)*h*w, 0);   
     sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);    
     while(1){
         sem_wait(&sems->haveToPrint);

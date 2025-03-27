@@ -15,7 +15,7 @@ int main(int argc, char *argv[]){ // reciben w y h;
     int w = atoi(argv[1]);
     int h = atoi(argv[2]);
 
-    game_t * game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);
+    game_t * game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t) + sizeof(int)*h*w, 0);
     sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
     int totalMoves = 0;
     
