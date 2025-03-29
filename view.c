@@ -48,9 +48,9 @@ int main(int argc, char *argv[]){
         }
         printf("\n");
 
-        printf("\x1b[1mPuntajes:\x1b[0m\n"); 
+        printf("\x1b[1mPuntajes:   Score / ValidMoves  / InvalidMoves\x1b[0m\n"); 
         for(int i=0; i < game->cantPlayers; i++){
-            printf("%sJugador %d %s: %d / %d / %d\n", colors[i], i, RESET, game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves);
+            printf("%sJugador %d %s: %d\t  / %d\t\t/ %d\n", colors[i], i, RESET, game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves);
         }
         printf("-------------------------------");
         printf("\n");

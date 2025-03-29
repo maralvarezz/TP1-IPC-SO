@@ -1,6 +1,6 @@
 #include "utils.h"
 
-void preSet(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view);
+void setGame(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view, unsigned int* w, unsigned int* h);
 void getBoard(game_t * game, unsigned int seed);
 
 int main(int argc, char *argv[]){
@@ -9,23 +9,33 @@ int main(int argc, char *argv[]){
         perror("Cantidad de argumentos incorrectos");
         exit(1);
     }
-    
-    game_t* game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t), 0);
-    sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
-
     unsigned int delay, timeout, seed;
     FILE * view;
     //auxiliar para los players y sus files porque no se como se manejan
     //FILE * Fplayers[];
-    preSet(game, &delay, &timeout, &seed, &view);
-
-    /*FALTA PROG DEFENSIVA (dio paja)*/
-    for(int i = 1; i < argc; i++){
+    int firtsPlayer;
+    unsigned int w = 10;
+    unsigned int h = 10;
+    unsigned int delay = 0;
+    unsigned int timeout = 0;
+    unsigned int seed = time(NULL);
+    int aux;
+    int cantJug = 0;
+    for(int i = 1; i < argc; i++){ // unico detalle -p ULTIMO
+        
         if(strcmp(argv[i], "-w") == 0){
-            game->width = atoi(argv[i+1]);
+            if(aux = atoi(argv[i+1]) < 10){
+                perror("El ancho del tablero no puede ser menor a 10");
+                exit(1);
+            }
+            w = aux;
             i++;
         }else if(strcmp(argv[i], "-h") == 0){
-            game->height = atoi(argv[i+1]);
+            if(aux = atoi(argv[i+1]) < 10){
+                perror("El alto del tablero no puede ser menor a 10");
+                exit(1);
+            }
+            h = aux;
             i++;
         }else if(strcmp(argv[i], "-d") == 0){
             delay = atoi(argv[i+1]);
@@ -41,44 +51,53 @@ int main(int argc, char *argv[]){
             i++;
         }else if(strcmp(argv[i], "-p") == 0){
             i++;
-            //falta ver como sacar el pid teniendo solo el binario
-            /* Esto supongo que esta mal 
-            strcmp(argv[i][0], "-") == 0 --> me guardo esto
-            for(int j = 0; j < argc; j++){
+            int parametros[] = {w, h, NULL};
+            firtsPlayer=i;
+            for(int j = i ; j < argc; j++){
                 if(j > 9){
                     perror("Maximo 9 jugadores");
                     exit(1);
                 }
-                if(sizeof(argv[i]) == sizeof(FILE*)){
-                    Fplayers[j] = fopen(argv[i], "r");
-                    game->players[j].playerName = strconcat("Player", j);
-                    game->players[j].score = 0;
-                    game->players[j].validMoves = 0;
-                    game->players[j].invalidMoves = 0;
-                    game->players[j].blocked = false;
-                    i++;
+                if(sizeof(argv[j]) == sizeof(FILE *)){
+                    cantJug++;
                 }
-                else{
-                    break;
-                }
+
             }
-            game->cantPlayers = j;
-            */
+            
         }
     }
 
+    if(cantJug < 1){
+        perror("Debe haber minimo un jugador");
+        exit(1);
+    }
+    
+    game_t * game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t)+sizeof(int)*w*h, 0);
+    sync_t * sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
+
+
+    setGame(game, &delay, &timeout, &seed, &view, &w, &h);
     getBoard(game, seed);
     setPlayersPos(game);
 
+    /*
+    char aux[] = {cantJug + '0','/0'};
+                    game->players[cantJug].playerName = strconcat("Player", aux);
+                    game->players[cantJug].score = 0;
+                    game->players[cantJug].validMoves = 0;
+                    game->players[cantJug].invalidMoves = 0;
+                    game->players[cantJug].blocked = false;
+                    game->cantPlayers = cantJug;
+                    execve(argv[j], parametros, NULL);
+    */
 
     if(game->cantPlayers == 0){
         perror("At least one player must be specified using -p");
         exit(1);
     }
-
 }
 
-void preSet(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view){
+void setGame(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view, unsigned int * w, unsigned int * h){
     game->width = 10;
     game->height = 10;
     game->cantPlayers = 0;
@@ -93,13 +112,23 @@ void getBoard(game_t * game, unsigned int seed){
     srand(seed);
     int aux;
     for(int i = 0; i < (game->height * (game->width)); i++){
-        do{
-            aux = rand() % 10;
-        } while (aux == 0);
-        game->board[i] = aux;
+        game->board[i] = (rand() % 9) + 1;
     }
 }
 
 void setPlayersPos(game_t * game){
+    int a = game->height / 2;
+    int b = game->width / 2;
 
+    if(game->cantPlayers == 1){
+        game->players[0].posX = game->width / 2;
+        game->players[0].posY = game->height / 2;
+    }
+    else{
+        for(int i = 0; i < game->cantPlayers; i++){
+            double theta = (2.0 * 3.14 * i) / game->cantPlayers; 
+            game->players[i].posX = (unsigned short)(a * cos(theta));
+            game->players[i].posY = (unsigned short)(b * sin(theta));
+        }
+    }
 }

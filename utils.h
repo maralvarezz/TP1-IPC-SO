@@ -34,7 +34,7 @@ typedef struct {
     player_t players[9]; // Lista de jugadores
     bool finished; // Indica si el juego se ha terminado
     int board[]; // Puntero al comienzo del tablero. fila-0, fila-1, ..., fila-n-1
-}game_t;
+} game_t;
 
 typedef struct {
     sem_t haveToPrint; // Se usa para indicarle a la vista que hay cambios por imprimir
