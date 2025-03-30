@@ -22,5 +22,6 @@ void * createSHM(char * name,int flags, size_t size, char haveToTruncate){
         perror("mmap");
         exit(EXIT_FAILURE);
     }
+    
     return toRet;
 }

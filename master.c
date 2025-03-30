@@ -1,28 +1,26 @@
 #include "utils.h"
 
-void setGame(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view, unsigned int* w, unsigned int* h);
+void setGame(game_t * game,unsigned int cantJug, unsigned int w, unsigned int h);
 void getBoard(game_t * game, unsigned int seed);
 
 int main(int argc, char *argv[]){
-
     if(argc < 3){
         perror("Cantidad de argumentos incorrectos");
         exit(1);
     }
     unsigned int delay, timeout, seed;
-    FILE * view;
+    FILE * view = NULL;
     //auxiliar para los players y sus files porque no se como se manejan
     //FILE * Fplayers[];
     int firtsPlayer;
     unsigned int w = 10;
     unsigned int h = 10;
-    unsigned int delay = 0;
-    unsigned int timeout = 0;
+    unsigned int delay = 200;
+    unsigned int timeout = 10;
     unsigned int seed = time(NULL);
     int aux;
     int cantJug = 0;
     for(int i = 1; i < argc; i++){ // unico detalle -p ULTIMO
-        
         if(strcmp(argv[i], "-w") == 0){
             if(aux = atoi(argv[i+1]) < 10){
                 perror("El ancho del tablero no puede ser menor a 10");
@@ -58,12 +56,8 @@ int main(int argc, char *argv[]){
                     perror("Maximo 9 jugadores");
                     exit(1);
                 }
-                if(sizeof(argv[j]) == sizeof(FILE *)){
-                    cantJug++;
-                }
-
+                cantJug++;
             }
-            
         }
     }
 
@@ -76,13 +70,25 @@ int main(int argc, char *argv[]){
     sync_t * sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
 
 
-    setGame(game, &delay, &timeout, &seed, &view, &w, &h);
+    setGame(game, cantJug, w, h);
     getBoard(game, seed);
     setPlayersPos(game);
 
+    // ya ejecutado la view
+
+    for(int i=0; i < cantJug; i++){ 
+        char aux[] = {i + '0','/0'};
+        strcopy(game->players[i].playerName, strconcat("Player", aux));
+        game->players[i].score = 0;
+        game->players[i].validMoves = 0;
+        game->players[i].invalidMoves = 0;
+        game->players[i].blocked = false;
+    }
+
+    
+
     /*
-    char aux[] = {cantJug + '0','/0'};
-                    game->players[cantJug].playerName = strconcat("Player", aux);
+   
                     game->players[cantJug].score = 0;
                     game->players[cantJug].validMoves = 0;
                     game->players[cantJug].invalidMoves = 0;
@@ -97,15 +103,15 @@ int main(int argc, char *argv[]){
     }
 }
 
-void setGame(game_t * game, unsigned int * delay, unsigned int * timeout, unsigned int * seed, FILE ** view, unsigned int * w, unsigned int * h){
-    game->width = 10;
-    game->height = 10;
-    game->cantPlayers = 0;
+void setGame(game_t * game,unsigned int cantJug,  unsigned int  w, unsigned int  h){
+    game->width = w;
+    game->height = h;
+    game->cantPlayers = cantJug;
     game->finished = false;
-    *delay = 200;
+    /* *delay = 200;
     *timeout = 10;
     *seed = time(NULL);
-    *view = NULL;
+    *view = NULL;*/
 }
 
 void getBoard(game_t * game, unsigned int seed){
@@ -119,14 +125,13 @@ void getBoard(game_t * game, unsigned int seed){
 void setPlayersPos(game_t * game){
     int a = game->height / 2;
     int b = game->width / 2;
-
     if(game->cantPlayers == 1){
-        game->players[0].posX = game->width / 2;
-        game->players[0].posY = game->height / 2;
+        game->players[0].posX = b;
+        game->players[0].posY = a;
     }
     else{
         for(int i = 0; i < game->cantPlayers; i++){
-            double theta = (2.0 * 3.14 * i) / game->cantPlayers; 
+            double theta = (2.0 * 3.14 * i) / game->cantPlayers; // diviendo en radianes una vuelta completa
             game->players[i].posX = (unsigned short)(a * cos(theta));
             game->players[i].posY = (unsigned short)(b * sin(theta));
         }
