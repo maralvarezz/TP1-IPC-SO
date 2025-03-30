@@ -1,4 +1,4 @@
-
+#include <math.h>
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <time.h>
 #include <stdbool.h>
+
 
 typedef struct {
     char playerName[16]; // Nombre del jugador

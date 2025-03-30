@@ -1,14 +1,14 @@
-#include "utils.h"
+#include "./utils.h"
 
 void setGame(game_t * game,unsigned int cantJug, unsigned int w, unsigned int h);
 void getBoard(game_t * game, unsigned int seed);
+void setPlayersPos(game_t * game);
 
 int main(int argc, char *argv[]){
     if(argc < 3){
         perror("Cantidad de argumentos incorrectos");
         exit(1);
     }
-    unsigned int delay, timeout, seed;
     FILE * view = NULL;
     //auxiliar para los players y sus files porque no se como se manejan
     //FILE * Fplayers[];
@@ -22,14 +22,14 @@ int main(int argc, char *argv[]){
     int cantJug = 0;
     for(int i = 1; i < argc; i++){ // unico detalle -p ULTIMO
         if(strcmp(argv[i], "-w") == 0){
-            if(aux = atoi(argv[i+1]) < 10){
+            if((aux = atoi(argv[i+1])) < 10){
                 perror("El ancho del tablero no puede ser menor a 10");
                 exit(1);
             }
             w = aux;
             i++;
         }else if(strcmp(argv[i], "-h") == 0){
-            if(aux = atoi(argv[i+1]) < 10){
+            if((aux = atoi(argv[i+1])) < 10){
                 perror("El alto del tablero no puede ser menor a 10");
                 exit(1);
             }
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]){
             i++;
         }else if(strcmp(argv[i], "-p") == 0){
             i++;
-            int parametros[] = {w, h, NULL};
+            int parametros[] = {w, h, 0};
             firtsPlayer=i;
             for(int j = i ; j < argc; j++){
                 if(j > 9){
@@ -75,14 +75,18 @@ int main(int argc, char *argv[]){
     setPlayersPos(game);
 
     // ya ejecutado la view
-
+    int pipefds[cantJug][2];
     for(int i=0; i < cantJug; i++){ 
-        char aux[] = {i + '0','/0'};
-        strcopy(game->players[i].playerName, strconcat("Player", aux));
+        char aux[] = {i + '0',0};
+        strcpy(game->players[i].playerName, strcat("Player", aux));
         game->players[i].score = 0;
         game->players[i].validMoves = 0;
         game->players[i].invalidMoves = 0;
         game->players[i].blocked = false;
+        if(pipe(pipefds[i])==-1){
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
     }
 
     
