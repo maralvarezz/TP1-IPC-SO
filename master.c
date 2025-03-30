@@ -123,17 +123,27 @@ void getBoard(game_t * game, unsigned int seed){
 }
 
 void setPlayersPos(game_t * game){
-    int a = game->height / 2;
-    int b = game->width / 2;
+    unsigned short a = (game->height / 2) * 0.8; // Semieje vertical reducido
+    unsigned short b = (game->width / 2) * 0.8;  // Semieje horizontal reducido
+
     if(game->cantPlayers == 1){
-        game->players[0].posX = b;
-        game->players[0].posY = a;
-    }
-    else{
+        game->players[0].posX = game->width / 2; // Centro del tablero
+        game->players[0].posY = game->height / 2;
+    } else {
         for(int i = 0; i < game->cantPlayers; i++){
-            double theta = (2.0 * 3.14 * i) / game->cantPlayers; // diviendo en radianes una vuelta completa
-            game->players[i].posX = (unsigned short)(a * cos(theta));
-            game->players[i].posY = (unsigned short)(b * sin(theta));
+            double theta = (2.0 * 3.14 * i) / game->cantPlayers; // Ángulo en radianes para cada jugador
+
+            // Calcular las posiciones en el borde del óvalo reducido
+            game->players[i].posX = (unsigned short)((game->width / 2) + b * cos(theta));
+            game->players[i].posY = (unsigned short)((game->height / 2) + a * sin(theta));
+
+            printf("Player %d: (%d, %d)\n", i, game->players[i].posX, game->players[i].posY);
+
+            // Verificar que las posiciones estén dentro de los límites del tablero
+            if (game->players[i].posX >= 0 && game->players[i].posX < game->width &&
+                game->players[i].posY >= 0 && game->players[i].posY < game->height) {
+                game->board[game->players[i].posY * game->width + game->players[i].posX] = -i - 1; // Colocar al jugador en el tablero
+            }
         }
     }
 }

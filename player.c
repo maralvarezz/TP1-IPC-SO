@@ -85,7 +85,7 @@ void move(unsigned char * direction){
                         break;
                     }
                 }
-         }    
+         }
         }
     }
     
@@ -94,7 +94,6 @@ void move(unsigned char * direction){
         sem_post(&sems->D);
     }
     sem_post(&sems->E);
-
 }
 
 
