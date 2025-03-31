@@ -64,13 +64,12 @@ void move(unsigned char * direction){
     int max = 0;
     *direct = 15; 
     sem_wait(&sems->C);
+    sem_post(&sems->C);
     sem_wait(&sems->E);
     if(++sems->playersReading==1){
         sem_wait(&sems->D);
     }
     sem_post(&sems->E);
-    sem_post(&sems->C);
-    
     unsigned short y = game->players[playerNum].posY;
     unsigned short x = game->players[playerNum].posX;
     if(totalMoves == game->players[playerNum].validMoves+game->players[playerNum].invalidMoves){
