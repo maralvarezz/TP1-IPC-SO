@@ -33,6 +33,7 @@ int main(int argc, char *argv[]){
     while(1){
         sem_wait(&sems->haveToPrint);
         for(int i=0;i<w*h;i++){
+            
             if(i%w == 0){
                 printf("\n");
             }
@@ -45,6 +46,8 @@ int main(int argc, char *argv[]){
                 y = game->players[-aux].posY;
                 printf("%s" "%s" RESET, colors[-aux],(i==y*w+x)?" ██":" ⯀ ");//⯀ ██
             }
+            
+            //fflush(stdout);
         }
         printf("\n");
 
@@ -58,6 +61,7 @@ int main(int argc, char *argv[]){
         if(game->finished){
             break;
         }
+        printf("\033[H\033[J"); // limpia la pantalla
     }
     int winner = 0;
     int aux[9];

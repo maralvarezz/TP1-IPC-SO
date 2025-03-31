@@ -9,7 +9,9 @@ int main(int argc, char *argv[]){
         perror("Cantidad de argumentos incorrectos");
         exit(1);
     }
-    FILE * view = NULL;
+    //pruebas
+    //FILE * view = NULL;
+    char * view = NULL;
     //auxiliar para los players y sus files porque no se como se manejan
     //FILE * Fplayers[];
     int firtsPlayer;
@@ -45,14 +47,15 @@ int main(int argc, char *argv[]){
             seed = atoi(argv[i+1]);
             i++;
         }else if(strcmp(argv[i], "-v") == 0){
-            view = fopen(argv[i+1], "r"); // ver si estan bien los permisos
+            //view = fopen(argv[i+1], "r"); // ver si estan bien los permisos
+            view=argv[i+1];
             i++;
         }else if(strcmp(argv[i], "-p") == 0){
             i++;
             int parametros[] = {w, h, 0};
             firtsPlayer=i;
             for(int j = i ; j < argc; j++){
-                if(j > 9){
+                if((j - i) > 9){
                     perror("Maximo 9 jugadores");
                     exit(1);
                 }
@@ -65,20 +68,25 @@ int main(int argc, char *argv[]){
         perror("Debe haber minimo un jugador");
         exit(1);
     }
-    
-    game_t * game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t)+sizeof(int)*w*h, 0);
-    sync_t * sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);
-
+    printf("termine de procesar args\n");
+    game_t * game = (game_t*)createSHM("/game_state",O_RDWR |  O_CREAT, sizeof(game_t)+sizeof(int)*w*h, 1);
+    sync_t * sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 1);
+    //falta inicializar los semaforos
 
     setGame(game, cantJug, w, h);
     getBoard(game, seed);
     setPlayersPos(game);
-
+    //seria solo si pasan una view
+    if(fork()==0){
+        printf("\033[H\033[J");
+        printf("width = %d\nheight = %d\n delay = %dms\ntimeout = %ds\nseed=%d\nview = a\n",w,h,delay,timeout,seed);
+        execve()
+    }
     // ya ejecutado la view
     int pipefds[cantJug][2];
     for(int i=0; i < cantJug; i++){ 
-        char aux[] = {i + '0',0};
-        strcpy(game->players[i].playerName, strcat("Player", aux));
+        char aux[] = {'P','l','a','y','e','r',' ',i + '0','\0'};
+        strcpy(game->players[i].playerName,aux);
         game->players[i].score = 0;
         game->players[i].validMoves = 0;
         game->players[i].invalidMoves = 0;
@@ -97,14 +105,23 @@ int main(int argc, char *argv[]){
             close(pipefds[i][0]);
             dup2(pipefds[i][1], STDOUT_FILENO);
             close(pipefds[i][1]);
+            return 0;
             // execve() falta ver que ejecuta
         }else{
+            waitpid(childPID,NULL,0);
             close(pipefds[i][1]);
             game->players[i].pid = childPID;
             printf("Soy el padre por %d vez\n", i);
-            //printf("El hijo %d tiene pid %d\n", i, game->players[i].pid);
         }
+        //printf("%d  pipeFD 0 = %d pipeFD 1 = %d\n",i,pipefds[i][0],pipefds[i][1]);
     }
+    printf("termine de setear los players\n");
+
+    //falta cerrar semaforos antes de cerrar las shms
+    closeSHM("/game_state",(void *)game, sizeof(game_t)+sizeof(int)*w*h);
+    closeSHM("/game_sync",(void *)sems, sizeof(sync_t));
+
+
 
     
 
@@ -118,10 +135,11 @@ int main(int argc, char *argv[]){
                     execve(argv[j], parametros, NULL);
     */
 
-    if(game->cantPlayers == 0){
+    /*if(game->cantPlayers == 0){
         perror("At least one player must be specified using -p");
         exit(1);
-    }
+    }*/
+   return 0;
 }
 
 void setGame(game_t * game,unsigned int cantJug,  unsigned int  w, unsigned int  h){

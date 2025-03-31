@@ -22,6 +22,18 @@ void * createSHM(char * name,int flags, size_t size, char haveToTruncate){
         perror("mmap");
         exit(EXIT_FAILURE);
     }
-    
+    close(fd);
     return toRet;
+}
+
+int closeSHM(char * name,void * dir,size_t size){
+    if (munmap(dir,size) == -1) {
+        perror("munmap");
+        exit(EXIT_FAILURE);
+    }
+    if (shm_unlink(name) == -1) {
+        perror("shm_unlink");
+        exit(EXIT_FAILURE);
+    }
+    return 0;
 }
