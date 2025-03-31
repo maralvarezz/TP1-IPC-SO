@@ -87,6 +87,23 @@ int main(int argc, char *argv[]){
             perror("pipe");
             exit(EXIT_FAILURE);
         }
+        pid_t childPID = fork();
+        if(childPID == -1){
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }else if(childPID == 0){ 
+            printf("Soy el hijo %d\n", i);
+            printf("pipeFD[0] %d pipeFD[1] %d\n", pipefds[i][0],pipefds[i][1]);
+            close(pipefds[i][0]);
+            dup2(pipefds[i][1], STDOUT_FILENO);
+            close(pipefds[i][1]);
+            // execve() falta ver que ejecuta
+        }else{
+            close(pipefds[i][1]);
+            game->players[i].pid = childPID;
+            printf("Soy el padre por %d vez\n", i);
+            //printf("El hijo %d tiene pid %d\n", i, game->players[i].pid);
+        }
     }
 
     
