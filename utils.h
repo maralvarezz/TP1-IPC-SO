@@ -17,6 +17,9 @@
 #include <time.h>
 #include <stdbool.h>
 
+#define SHM_GAME_NAME "/game_state"
+#define SHM_SYNC_NAME "/game_sync"
+
 
 typedef struct {
     char playerName[16]; // Nombre del jugador
@@ -38,15 +41,15 @@ typedef struct {
 } game_t;
 
 typedef struct {
-    sem_t haveToPrint; // Se usa para indicarle a la vista que hay cambios por imprimir
-    sem_t finishedPrinting; // Se usa para indicarle al master que la vista terminó de imprimir
-    sem_t C; // Mutex para evitar inanición del master al acceder al estado
-    sem_t D; // Mutex para ver el estado del juego(a quién le toca)
-    sem_t E; // Mutex para la siguiente variable 
-    unsigned int playersReading; // Cantidad de jugadores leyendo el estado
+    sem_t haveToPrint;
+    sem_t finishedPrinting; 
+    sem_t masterMutex; 
+    sem_t gameStatusMutex; 
+    sem_t playersReadingMutex; 
+    unsigned int playersReading; 
 } sync_t;
     
 
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
-int closeSHM(char * name,void * dir,size_t size);
+int closeSHM(char * name,void * dir,size_t size,char haveToUnlink);
 

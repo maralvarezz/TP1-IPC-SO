@@ -1,8 +1,17 @@
 #include "./utils.h"
 
+#define SHARED 1
+
+
+
 void setGame(game_t * game,unsigned int cantJug, unsigned int w, unsigned int h);
 void getBoard(game_t * game, unsigned int seed);
 void setPlayersPos(game_t * game);
+void setPlayers(game_t * game,int pipefds[][2],int cantJug);
+void createSems(sync_t * sems);
+void closeSems(sync_t * sems);
+void safeSem_init(sem_t* sem, int shared, int value);
+
 
 int main(int argc, char *argv[]){
     if(argc < 3){
@@ -69,57 +78,56 @@ int main(int argc, char *argv[]){
         exit(1);
     }
     printf("termine de procesar args\n");
-    game_t * game = (game_t*)createSHM("/game_state",O_RDWR |  O_CREAT, sizeof(game_t)+sizeof(int)*w*h, 1);
-    sync_t * sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 1);
+    game_t * game = (game_t*)createSHM(SHM_GAME_NAME,O_RDWR |  O_CREAT, sizeof(game_t)+sizeof(int)*w*h, 1);
+    sync_t * sems = (sync_t*)createSHM(SHM_SYNC_NAME,O_RDWR |  O_CREAT, sizeof(sync_t), 1);
     //falta inicializar los semaforos
-
+    createSems(sems);
     setGame(game, cantJug, w, h);
     getBoard(game, seed);
-    setPlayersPos(game);
+    
+    
+
     //seria solo si pasan una view
-    if(fork()==0){
+    int viewPID=fork();
+    if(viewPID==0){
         printf("\033[H\033[J");
         printf("width = %d\nheight = %d\n delay = %dms\ntimeout = %ds\nseed=%d\nview = a\n",w,h,delay,timeout,seed);
-        execve()
+        return 0;
+        //execve()
     }
+    waitpid(viewPID,NULL,0);//esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     // ya ejecutado la view
     int pipefds[cantJug][2];
+    setPlayers(game,pipefds,cantJug); // ahora quedan bien todos los pipes precreados y ya ubicados en el tablero
+    
+    //ESPACIO PARA TERMINAR DE SETTEAR LAS COSAS DEL MASTER ANTES DE ARRANCAR EL JUEGO
+
+    //PREPARACION DE LOS PLAYERS Y EXECVE DE C/U
     for(int i=0; i < cantJug; i++){ 
-        char aux[] = {'P','l','a','y','e','r',' ',i + '0','\0'};
-        strcpy(game->players[i].playerName,aux);
-        game->players[i].score = 0;
-        game->players[i].validMoves = 0;
-        game->players[i].invalidMoves = 0;
-        game->players[i].blocked = false;
-        if(pipe(pipefds[i])==-1){
-            perror("pipe");
-            exit(EXIT_FAILURE);
-        }
         pid_t childPID = fork();
         if(childPID == -1){
             perror("fork");
             exit(EXIT_FAILURE);
         }else if(childPID == 0){ 
-            printf("Soy el hijo %d\n", i);
-            printf("pipeFD[0] %d pipeFD[1] %d\n", pipefds[i][0],pipefds[i][1]);
             close(pipefds[i][0]);
             dup2(pipefds[i][1], STDOUT_FILENO);
             close(pipefds[i][1]);
-            return 0;
+            return 0;//CAMBIAR ESTE RETURN POR EL EXECVE DE CADA PLAYER
             // execve() falta ver que ejecuta
         }else{
+
             waitpid(childPID,NULL,0);
             close(pipefds[i][1]);
             game->players[i].pid = childPID;
-            printf("Soy el padre por %d vez\n", i);
         }
-        //printf("%d  pipeFD 0 = %d pipeFD 1 = %d\n",i,pipefds[i][0],pipefds[i][1]);
     }
-    printf("termine de setear los players\n");
+
+
 
     //falta cerrar semaforos antes de cerrar las shms
-    closeSHM("/game_state",(void *)game, sizeof(game_t)+sizeof(int)*w*h);
-    closeSHM("/game_sync",(void *)sems, sizeof(sync_t));
+    closeSHM(SHM_GAME_NAME,(void *)game, sizeof(game_t)+sizeof(int)*w*h,1);
+    closeSHM(SHM_SYNC_NAME,(void *)sems, sizeof(sync_t),1);
 
 
 
@@ -179,10 +187,42 @@ void setPlayersPos(game_t * game){
             printf("Player %d: (%d, %d)\n", i, game->players[i].posX, game->players[i].posY);
 
             // Verificar que las posiciones estén dentro de los límites del tablero
-            if (game->players[i].posX >= 0 && game->players[i].posX < game->width &&
-                game->players[i].posY >= 0 && game->players[i].posY < game->height) {
-                game->board[game->players[i].posY * game->width + game->players[i].posX] = -i - 1; // Colocar al jugador en el tablero
+            if (game->players[i].posX >= 0 && game->players[i].posX < game->width && game->players[i].posY >= 0 && game->players[i].posY < game->height) {
+                game->board[game->players[i].posY * game->width + game->players[i].posX] = -i; // Colocar al jugador en el tablero
             }
         }
+    }
+}
+
+void setPlayers(game_t * game,int pipefds[][2],int cantJug){
+    for(int i=0;i<cantJug;i++){
+        char aux[] = {'P','l','a','y','e','r',' ',i + '0','\0'};
+        strcpy(game->players[i].playerName,aux);
+        game->players[i].score = 0;
+        game->players[i].validMoves = 0;
+        game->players[i].invalidMoves = 0;
+        game->players[i].blocked = false;
+        if(pipe(pipefds[i])==-1){
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+    }
+    setPlayersPos(game);
+}
+
+//falte ver en que arrancan los semaforos
+void createSems(sync_t * sems){
+    safeSem_init(&sems->haveToPrint,SHARED,0);
+    safeSem_init(&sems->finishedPrinting,SHARED,0);
+    safeSem_init(&sems->masterMutex,SHARED,0);
+    safeSem_init(&sems->gameStatusMutex,SHARED,0);
+    safeSem_init(&sems->playersReadingMutex,SHARED,0);
+    sems->playersReading = 0;
+}
+
+void safeSem_init(sem_t* sem, int shared, int value){
+    if(sem_init(sem,shared,value)==-1){
+        perror("sem_init ");
+        exit(EXIT_FAILURE);
     }
 }

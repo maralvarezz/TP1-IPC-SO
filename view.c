@@ -15,6 +15,7 @@
 #define PLAYER8     "\x1b[38;2;255;165;0m"  // Naranja
 #define PLAYER9    "\x1b[38;2;144;238;144m"  // Verde claro
 #define RESET   "\x1b[0m"
+#define CLEAR   "\033[H\033[J"
 
 
 int main(int argc, char *argv[]){
@@ -28,8 +29,8 @@ int main(int argc, char *argv[]){
     printf("in view\n");
     // pruebas ---------------------
     //inicio: 
-    game_t * game = (game_t*)createSHM("/game_state",O_RDONLY |  O_CREAT, sizeof(game_t) + sizeof(int)*h*w, 0);   
-    sync_t *sems = (sync_t*)createSHM("/game_sync",O_RDWR |  O_CREAT, sizeof(sync_t), 0);    
+    game_t * game = (game_t*)createSHM(SHM_GAME_NAME,O_RDONLY |  O_CREAT, sizeof(game_t) + sizeof(int)*h*w, 0);   
+    sync_t *sems = (sync_t*)createSHM(SHM_SYNC_NAME,O_RDWR |  O_CREAT, sizeof(sync_t), 0);    
     while(1){
         sem_wait(&sems->haveToPrint);
         for(int i=0;i<w*h;i++){
@@ -61,10 +62,10 @@ int main(int argc, char *argv[]){
         if(game->finished){
             break;
         }
-        printf("\033[H\033[J"); // limpia la pantalla
+        printf(CLEAR);
     }
     int winner = 0;
-    int aux[9];
+    int winnerArray[9];
     int cantWinners = 0;
     for (int i = 1; i < game->cantPlayers; i++) {
         if (game->players[i].score > game->players[winner].score ||
@@ -77,21 +78,21 @@ int main(int argc, char *argv[]){
         }else if(game->players[i].score == game->players[winner].score &&
          game->players[i].validMoves == game->players[winner].validMoves &&
          game->players[i].invalidMoves == game->players[winner].invalidMoves){
-            aux[cantWinners+1] = i;
-            cantWinners++;
+            winnerArray[++cantWinners] = i;
         }
     }
-    aux[0] = winner;
+    winnerArray[0] = winner;
     if(cantWinners > 0){
         printf("\x1b[1mEmpate entre los jugadores:\x1b[0m\n");
-        for(int i = 0; i < cantWinners+1; i++){
-            printf("%sJugador %d%s\n",colors[aux[i]], aux[i], RESET);
+        for(int i = 0; i <= cantWinners; i++){
+            printf("%sJugador %d%s\n",colors[winnerArray[i]], winnerArray[i], RESET);
         }
     }else{
         printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n",colors[winner], winner, RESET);
     }
-    //goto inicio;
-    //-------------------------------
+    
+    closeSHM(SHM_GAME_NAME,(void *)game, sizeof(game_t)+sizeof(int)*w*h, 0);
+    closeSHM(SHM_SYNC_NAME,(void *)sems, sizeof(sync_t), 0);
     return 0;
 }
 
