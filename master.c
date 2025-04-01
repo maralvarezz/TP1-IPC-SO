@@ -31,7 +31,84 @@ int main(int argc, char *argv[]){
     unsigned int seed = time(NULL);
     int aux;
     int cantJug = 0;
-    for(int i = 1; i < argc; i++){ // unico detalle -p ULTIMO
+    int option;
+
+    /*CORREGIR EL FORMATP DE ESTO*/
+    while ((option = getopt(argc, argv, "w:h:d:t:s:v:p:")) != -1) {
+        printf("Procesando opción: -%c, optarg: %s, optind: %d\n", option, optarg, optind);
+        switch (option) {
+            case 'w':
+                if (optarg == NULL) {
+                    perror("Falta el argumento para -w");
+                    exit(1);
+                }
+                if ((aux = atoi(optarg)) < 10) {
+                    perror("El ancho del tablero no puede ser menor a 10");
+                    exit(1);
+                }
+                w = aux;
+                break;
+            case 'h':
+                if (optarg == NULL) {
+                    perror("Falta el argumento para -h");
+                    exit(1);
+                }
+                if ((aux = atoi(optarg)) < 10) {
+                    perror("El alto del tablero no puede ser menor a 10");
+                    exit(1);
+                }
+                h = aux;
+                break;
+            case 'd':
+                if (optarg == NULL) {
+                    perror("Falta el argumento para -d");
+                    exit(1);
+                }
+                delay = atoi(optarg);
+                break;
+            case 't':
+                if (optarg == NULL) {
+                    perror("Falta el argumento para -t");
+                    exit(1);
+                }
+                timeout = atoi(optarg);
+                break;
+            case 's':
+                if (optarg == NULL) {
+                    perror("Falta el argumento para -s");
+                    exit(1);
+                }
+                seed = atoi(optarg);
+                break;
+            case 'v':
+                if (optarg == NULL) {
+                    perror("Falta el argumento para -v");
+                    exit(1);
+                }
+                view = optarg;
+                break;
+            case 'p':
+                firtsPlayer = optind - 1;
+                if (firtsPlayer >= argc) {
+                    perror("Debe especificar al menos un jugador después de -p");
+                    exit(1);
+                }
+                for (int j = firtsPlayer; j < argc; j++) {
+                    if ((j - firtsPlayer) >= 9) {
+                        perror("Máximo 9 jugadores");
+                        exit(1);
+                    }
+                    cantJug++;
+                }
+                optind = argc; // Saltar el resto de los argumentos
+                break;
+            default:
+                fprintf(stderr, "Opción no reconocida: -%c\n", optopt);
+                exit(1);
+        }
+    }
+    
+    /*for(int i = 1; i < argc; i++){ // unico detalle -p ULTIMO
         if(strcmp(argv[i], "-w") == 0){
             if((aux = atoi(argv[i+1])) < 10){
                 perror("El ancho del tablero no puede ser menor a 10");
@@ -71,7 +148,7 @@ int main(int argc, char *argv[]){
                 cantJug++;
             }
         }
-    }
+    }*/
 
     if(cantJug < 1){
         perror("Debe haber minimo un jugador");
@@ -88,12 +165,14 @@ int main(int argc, char *argv[]){
     
 
     //seria solo si pasan una view
-    int viewPID=fork();
-    if(viewPID==0){
-        printf("\033[H\033[J");
-        printf("width = %d\nheight = %d\n delay = %dms\ntimeout = %ds\nseed=%d\nview = a\n",w,h,delay,timeout,seed);
-        return 0;
-        //execve()
+    if(view != NULL){
+        int viewPID=fork();
+        if(viewPID==0){
+            printf("\033[H\033[J");
+            printf("width = %d\nheight = %d\n delay = %dms\ntimeout = %ds\nseed=%d\nview = a\n",w,h,delay,timeout,seed);
+            return 0;
+            //execve()
+        }
     }
     waitpid(viewPID,NULL,0);//esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
