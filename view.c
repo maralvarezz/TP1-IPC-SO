@@ -15,7 +15,7 @@
 #define PLAYER8     "\x1b[38;2;255;165;0m"  // Naranja
 #define PLAYER9    "\x1b[38;2;144;238;144m"  // Verde claro
 #define RESET   "\x1b[0m"
-#define CLEAR   "\033[H\033[J"
+#define CLEAR   "\033[H\033[J" 
 
 
 int main(int argc, char *argv[]){

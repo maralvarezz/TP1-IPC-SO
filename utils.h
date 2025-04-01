@@ -53,3 +53,4 @@ typedef struct {
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
 int closeSHM(char * name,void * dir,size_t size,char haveToUnlink);
 
+

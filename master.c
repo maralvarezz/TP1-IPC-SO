@@ -10,7 +10,12 @@ void setPlayersPos(game_t * game);
 void setPlayers(game_t * game,int pipefds[][2],int cantJug);
 void createSems(sync_t * sems);
 void closeSems(sync_t * sems);
+
+
 void safeSem_init(sem_t* sem, int shared, int value);
+void  safeClose(int fd);
+
+void closeAllNotNeededFD(int pipefds[][2],int cantJug,int playerNum);
 
 
 int main(int argc, char *argv[]){
@@ -173,8 +178,9 @@ int main(int argc, char *argv[]){
             return 0;
             //execve()
         }
+        waitpid(viewPID,NULL,0);//esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     }
-    waitpid(viewPID,NULL,0);//esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
 
     // ya ejecutado la view
     int pipefds[cantJug][2];
@@ -189,17 +195,20 @@ int main(int argc, char *argv[]){
             perror("fork");
             exit(EXIT_FAILURE);
         }else if(childPID == 0){ 
-            close(pipefds[i][0]);
+            closeAllNotNeededFD(pipefds,cantJug,i);
+            safeClose(pipefds[i][0]);
             dup2(pipefds[i][1], STDOUT_FILENO);
-            close(pipefds[i][1]);
+            safeClose(pipefds[i][1]);
             return 0;//CAMBIAR ESTE RETURN POR EL EXECVE DE CADA PLAYER
             // execve() falta ver que ejecuta
         }else{
-
-            waitpid(childPID,NULL,0);
-            close(pipefds[i][1]);
             game->players[i].pid = childPID;
         }
+    }
+
+    for(int i = 0; i < cantJug; i++) {
+        safeClose(pipefds[i][1]);
+        waitpid(game->players[i].pid, NULL, 0);
     }
 
 
@@ -302,6 +311,22 @@ void createSems(sync_t * sems){
 void safeSem_init(sem_t* sem, int shared, int value){
     if(sem_init(sem,shared,value)==-1){
         perror("sem_init ");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void closeAllNotNeededFD(int pipefds[][2],int cantJug,int playerNum){
+    for(int i=0;i<cantJug;i++){
+        if(i!=playerNum){
+            safeClose(pipefds[i][0]);
+            safeClose(pipefds[i][1]);
+        }
+    }
+}
+
+void safeClose(int fd){
+    if(close(fd)==-1){
+        perror("close");
         exit(EXIT_FAILURE);
     }
 }
