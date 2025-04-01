@@ -168,23 +168,24 @@ int main(int argc, char *argv[]){
     getBoard(game, seed);
     
     
-
+    int viewRet;
+    int viewPID;
     //seria solo si pasan una view
     if(view != NULL){
-        int viewPID=fork();
+        viewPID=fork();
         if(viewPID==0){
-            printf("\033[H\033[J");
+            printf(CLEAR);
             printf("width = %d\nheight = %d\n delay = %dms\ntimeout = %ds\nseed=%d\nview = a\n",w,h,delay,timeout,seed);
             return 0;
             //execve()
         }
-        waitpid(viewPID,NULL,0);//esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     }
     
 
     // ya ejecutado la view
     int pipefds[cantJug][2];
-    setPlayers(game,pipefds,cantJug); // ahora quedan bien todos los pipes precreados y ya ubicados en el tablero
+    setPlayers(game,pipefds,cantJug); // ahora quedan bien todos los pipes precreados y  los jugadores ya ubicados en el tablero
     
     //ESPACIO PARA TERMINAR DE SETTEAR LAS COSAS DEL MASTER ANTES DE ARRANCAR EL JUEGO
 
@@ -199,20 +200,72 @@ int main(int argc, char *argv[]){
             safeClose(pipefds[i][0]);
             dup2(pipefds[i][1], STDOUT_FILENO);
             safeClose(pipefds[i][1]);
+            printf("%d",i);
             return 0;//CAMBIAR ESTE RETURN POR EL EXECVE DE CADA PLAYER
             // execve() falta ver que ejecuta
         }else{
             game->players[i].pid = childPID;
         }
     }
+    int playersReturns[cantJug];
+    fd_set readFDS;
+    FD_ZERO(&readFDS);
 
+    //quiero ver si esto asi ya lo guarda para imprimir el cierre del juego
     for(int i = 0; i < cantJug; i++) {
         safeClose(pipefds[i][1]);
-        waitpid(game->players[i].pid, NULL, 0);
+        FD_SET(pipefds[i][0], &readFDS);
+    }
+    
+    
+    char finished  = 0;
+    while(!finished){
+        struct timeval timeoutForSelect;
+        timeoutForSelect.tv_sec = timeout;
+        timeoutForSelect.tv_usec = 0;
+        int status = select(pipefds[cantJug - 1][0] + 1, &readFDS, NULL, NULL,&timeoutForSelect);
+        if(status == -1){
+            perror("select");
+            exit(EXIT_FAILURE);
+        }else if(status == 0){
+            printf("Timeout reached, no data available.\n");
+            finished = 1; // Salir del bucle si no hay datos disponibles
+        }else{
+            for(int i = 0; i < cantJug; i++){
+                if(!game->players[i].blocked){
+                    //printf("Hay datos disponibles en el pipe del jugador %d\n", i);
+                    // Leer los datos del pipe y procesarlos
+                    char aux[]={0,0};
+                    int bytesRead = read(pipefds[i][0], &aux, sizeof(char));
+                    if (bytesRead < 0) {
+                        perror("read");
+                        exit(EXIT_FAILURE);
+                    }else if(bytesRead == 0){
+                        printf("El jugador %d ha cerrado su FD.\n", i);
+                        game->players[i].blocked = true; // Marcar al jugador como bloqueado
+                        FD_CLR(pipefds[i][0], &readFDS)	;
+                    }else{
+                        printf("el jugador %d envio la señal %s\n",i,aux);
+                    }
+                }
+            }
+        }
     }
 
-
-
+    if(view != NULL){
+        waitpid(viewPID,&viewRet,0);
+    }
+    
+    for(int i=0; i < cantJug; i++){
+        waitpid(game->players[i].pid, &playersReturns[i], 0);
+    }
+    
+    for(int i = 0; i < cantJug; i++){
+        printf("El jugador %d (%s) devolvio el valor %d\n", i, game->players[i].playerName, playersReturns[i]);
+    }
+    if(view != NULL){
+        printf("El view devolvio el valor %d\n", viewRet);
+    }
     //falta cerrar semaforos antes de cerrar las shms
     closeSHM(SHM_GAME_NAME,(void *)game, sizeof(game_t)+sizeof(int)*w*h,1);
     closeSHM(SHM_SYNC_NAME,(void *)sems, sizeof(sync_t),1);
@@ -251,7 +304,6 @@ void setGame(game_t * game,unsigned int cantJug,  unsigned int  w, unsigned int 
 
 void getBoard(game_t * game, unsigned int seed){
     srand(seed);
-    int aux;
     for(int i = 0; i < (game->height * (game->width)); i++){
         game->board[i] = (rand() % 9) + 1;
     }
@@ -301,10 +353,10 @@ void setPlayers(game_t * game,int pipefds[][2],int cantJug){
 //falte ver en que arrancan los semaforos
 void createSems(sync_t * sems){
     safeSem_init(&sems->haveToPrint,SHARED,0);
-    safeSem_init(&sems->finishedPrinting,SHARED,0);
-    safeSem_init(&sems->masterMutex,SHARED,0);
-    safeSem_init(&sems->gameStatusMutex,SHARED,0);
-    safeSem_init(&sems->playersReadingMutex,SHARED,0);
+    safeSem_init(&sems->finishedPrinting,SHARED,1);
+    safeSem_init(&sems->masterMutex,SHARED,1);
+    safeSem_init(&sems->gameStatusMutex,SHARED,1);
+    safeSem_init(&sems->playersReadingMutex,SHARED,1);
     sems->playersReading = 0;
 }
 

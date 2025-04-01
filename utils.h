@@ -19,6 +19,7 @@
 
 #define SHM_GAME_NAME "/game_state"
 #define SHM_SYNC_NAME "/game_sync"
+#define CLEAR   "\033[H\033[J" 
 
 
 typedef struct {
