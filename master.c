@@ -17,6 +17,15 @@ void  safeClose(int fd);
 
 void closeAllNotNeededFD(int pipefds[][2],int cantJug,int playerNum);
 
+static int dirs[][2]=   {{0,-1},
+                        {1,-1},
+                        {1,0},
+                        {1,1},
+                        {0,1},
+                        {-1,1},
+                        {-1,0},
+                        {-1,-1}};
+
 
 int main(int argc, char *argv[]){
     if(argc < 3){
@@ -169,7 +178,7 @@ int main(int argc, char *argv[]){
     
     
     int viewRet;
-    int viewPID;
+    pid_t viewPID;
     //seria solo si pasan una view
     if(view != NULL){
         viewPID=fork();
@@ -209,18 +218,17 @@ int main(int argc, char *argv[]){
     }
     int playersReturns[cantJug];
     fd_set readFDS;
-    FD_ZERO(&readFDS);
+    FD_ZERO(&readFDS); // inicializo en 0 el fd_set
 
-    //quiero ver si esto asi ya lo guarda para imprimir el cierre del juego
     for(int i = 0; i < cantJug; i++) {
         safeClose(pipefds[i][1]);
         FD_SET(pipefds[i][0], &readFDS);
     }
     
-    
+    struct timeval timeoutForSelect;
     char finished  = 0;
+    int playerTurn=0;
     while(!finished){
-        struct timeval timeoutForSelect;
         timeoutForSelect.tv_sec = timeout;
         timeoutForSelect.tv_usec = 0;
         int status = select(pipefds[cantJug - 1][0] + 1, &readFDS, NULL, NULL,&timeoutForSelect);
@@ -228,27 +236,15 @@ int main(int argc, char *argv[]){
             perror("select");
             exit(EXIT_FAILURE);
         }else if(status == 0){
-            printf("Timeout reached, no data available.\n");
-            finished = 1; // Salir del bucle si no hay datos disponibles
+            finished = 1;
+            //espero a que todos los jugadores hayan salido del game board y aviso que termino el juego
+            sem_wait(&sems->masterMutex);
+            sem_wait(&sems->gameStatusMutex);
+            game->finished=true;
+            sem_post(&sems->masterMutex);
+            sem_post(&sems->gameStatusMutex);
         }else{
-            for(int i = 0; i < cantJug; i++){
-                if(!game->players[i].blocked){
-                    //printf("Hay datos disponibles en el pipe del jugador %d\n", i);
-                    // Leer los datos del pipe y procesarlos
-                    char aux[]={0,0};
-                    int bytesRead = read(pipefds[i][0], &aux, sizeof(char));
-                    if (bytesRead < 0) {
-                        perror("read");
-                        exit(EXIT_FAILURE);
-                    }else if(bytesRead == 0){
-                        printf("El jugador %d ha cerrado su FD.\n", i);
-                        game->players[i].blocked = true; // Marcar al jugador como bloqueado
-                        FD_CLR(pipefds[i][0], &readFDS)	;
-                    }else{
-                        printf("el jugador %d envio la señal %s\n",i,aux);
-                    }
-                }
-            }
+            
         }
     }
 
@@ -350,14 +346,79 @@ void setPlayers(game_t * game,int pipefds[][2],int cantJug){
     setPlayersPos(game);
 }
 
+void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug,int viewPID){ //el PID de la view es para saber si se ejecuto o no
+    static int playerTurn = 0;
+    for(int i = 0; i < cantJug; i++){
+        if(!game->players[i].blocked){
+            unsigned char dir;
+            int bytesRead = read(pipefds[i][0], &aux, sizeof(unsigned char));
+            if (bytesRead < 0) {
+                perror("read");
+                exit(EXIT_FAILURE);
+            }else if(bytesRead == 0){
+                printf("El jugador %d ha cerrado su FD.\n", i);
+                game->players[i].blocked = true;
+                FD_CLR(pipefds[i][0], readFDS)	;
+            }else{ //salgo del ciclo unicamente si se proceso un movimiento
+                
+                
+                break;
+            }
+
+        }
+    }
+}
+
+void move(game_t * game, sync_t sems,int playerNum, unsigned char dirIdx){
+    
+    sem_wait(&sems->masterMutex);
+    sem_wait(&sems->gameStatusMutex);
+    int newPosValue;
+    unsigned short w,h;
+    w = game->width;
+    h = game->height;
+    player_t* playerToMove= &game->players[playerNum]
+    if ((newPosValue=game->board[w*(playerToMove->posY+dirs[dirIdx][1])+dirs[dirIdx][0]+playerToMove->posX])>0){
+        playerToMove->score+=newPosValue;
+        playertoMove->posX+=dirs[dirIdx][0];
+        playertoMove->posY+=dirs[dirIdx][1];
+        playerToMove->validMoves++;
+        checkAndBlockPlayers(game,playerToMove->posX,playerToMove->posY,cantJug);//tengo q cheackear si hay jugadores bloqueados unicamente si 
+                                                                                 // hubo un cambio en el tablero, sino no es necesario porque 
+                                                                                 //no cambio el estado  del tablero.
+    }else{
+        playerToMove->invalidMoves++;
+    }
+    sem_post(&sems->masterMutex);
+    sem_post(&sems->gameStatusMutex);
+}
 //falte ver en que arrancan los semaforos
 void createSems(sync_t * sems){
     safeSem_init(&sems->haveToPrint,SHARED,0);
-    safeSem_init(&sems->finishedPrinting,SHARED,1);
+    safeSem_init(&sems->finishedPrinting,SHARED,0);
     safeSem_init(&sems->masterMutex,SHARED,1);
     safeSem_init(&sems->gameStatusMutex,SHARED,1);
     safeSem_init(&sems->playersReadingMutex,SHARED,1);
     sems->playersReading = 0;
+}
+
+void checkAndBlockPlayers(game_t * game,int playerNum, int cantJug){
+    unsigned short x,y;
+    int cantPosOcuppied=0;
+    x= game->players[playerNum].posX
+    y= game->players[playerNum].posY
+    for(int i = 0; i < 8; i++){
+        if(y+dirs[i][1]>=0 && y+dirs[i][1]<h && dirs[i][0]+x >=0 && dirs[i][0]+x < w ){
+            if((aux = game->board[w*(y+dirs[i][1])+dirs[i][0]+x] ) < 0){ 
+                cantPosOcuppied++;
+            }else{
+                break;
+            }
+        }
+    }
+    if(cantPosOcuppied == 8){
+        game->players[playerNum].blocked=true;
+    }
 }
 
 void safeSem_init(sem_t* sem, int shared, int value){

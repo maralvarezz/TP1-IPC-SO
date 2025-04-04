@@ -1,3 +1,5 @@
+#ifndef UTILS_H
+#define UTILS_H
 #include <math.h>
 #include <semaphore.h>
 #include <stdio.h>
@@ -44,8 +46,8 @@ typedef struct {
 typedef struct {
     sem_t haveToPrint;
     sem_t finishedPrinting; 
-    sem_t masterMutex; 
-    sem_t gameStatusMutex; 
+    sem_t masterMutex;   // masterWantToModify
+    sem_t gameStatusMutex; //
     sem_t playersReadingMutex; 
     unsigned int playersReading; 
 } sync_t;
@@ -53,5 +55,7 @@ typedef struct {
 
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
 int closeSHM(char * name,void * dir,size_t size,char haveToUnlink);
+
+#endif
 
 
