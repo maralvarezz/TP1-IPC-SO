@@ -9,10 +9,10 @@ int isBlocked(game_t * game, int playerNum, sync_t *sems);
 
 
 int main(int argc, char *argv[]){ // reciben w y h;
-    if(argc != 3){ 
+    /*if(argc != 3){ 
         perror("argumentos incorrectos");
         exit(1);
-    }
+    }*/
     int w = atoi(argv[1]);
     int h = atoi(argv[2]);
 

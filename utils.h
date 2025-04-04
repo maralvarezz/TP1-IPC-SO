@@ -18,6 +18,8 @@
 #include <errno.h>
 #include <time.h>
 #include <stdbool.h>
+#include <sys/select.h>
+#include <bits/getopt_core.h>
 
 #define SHM_GAME_NAME "/game_state"
 #define SHM_SYNC_NAME "/game_sync"
@@ -52,15 +54,6 @@ typedef struct {
     unsigned int playersReading; 
 } sync_t;
     
-
-int dirs[][2]=   {{0,-1},
-                    {1,-1},
-                    {1,0},
-                    {1,1},
-                    {0,1},
-                    {-1,1},
-                    {-1,0},
-                    {-1,-1}};
 
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
 int closeSHM(char * name,void * dir,size_t size,char haveToUnlink);

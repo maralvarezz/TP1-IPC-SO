@@ -57,11 +57,12 @@ int main(int argc, char *argv[]){
         }
         printf("-------------------------------");
         printf("\n");
-        sem_post(&sems->finishedPrinting); 
         if(game->finished){
+            sem_post(&sems->finishedPrinting); 
             break;
         }
-        printf(CLEAR);
+        sem_post(&sems->finishedPrinting); 
+        //printf(CLEAR);
     }
     int winner = 0;
     int winnerArray[9];

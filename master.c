@@ -1,8 +1,7 @@
 #include "./utils.h"
 
+#define MAXDIGITS 11
 #define SHARED 1
-
-
 
 void setGame(game_t * game,unsigned int cantJug, unsigned int w, unsigned int h);
 void getBoard(game_t * game, unsigned int seed);
@@ -10,11 +9,10 @@ void setPlayersPos(game_t * game);
 void setPlayers(game_t * game,int pipefds[][2],int cantJug);
 void createSems(sync_t * sems);
 void closeSems(sync_t * sems);
-void checkAndBlockPlayer(game_t * game,int playerNum);
-void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug,int viewPID);
-void move(game_t * game, sync_t sems,int playerNum, unsigned char dirIdx);
-
-
+void checkAndBlockPlayer(game_t * game,int playerNum,int firstTime);
+void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug);
+void move(game_t * game, sync_t * sems,int playerNum,int cantJug, unsigned char dirIdx);
+int isGameEnded(game_t * game,int cantJug);
 
 void safeSem_init(sem_t* sem, int shared, int value);
 void safeClose(int fd);
@@ -46,12 +44,12 @@ int main(int argc, char *argv[]){
 
     /*CORREGIR EL FORMATP DE ESTO*/
     while ((option = getopt(argc, argv, "w:h:d:t:s:v:p:")) != -1) {
-        printf("Procesando opción: -%c, optarg: %s, optind: %d\n", option, optarg, optind);
+     //   printf("Procesando opción: -%c, optarg: %s, optind: %d\n", option, optarg, optind);
+
         switch (option) {
             case 'w':
-                if (optarg == NULL) {
-                    perror("Falta el argumento para -w");
-                    exit(1);
+                if (optarg == NULL || strncmp(optarg, "-", 1) == 0) {
+                    break;
                 }
                 if ((aux = atoi(optarg)) < 10) {
                     perror("El ancho del tablero no puede ser menor a 10");
@@ -60,9 +58,8 @@ int main(int argc, char *argv[]){
                 w = aux;
                 break;
             case 'h':
-                if (optarg == NULL) {
-                    perror("Falta el argumento para -h");
-                    exit(1);
+                if (optarg == NULL || strncmp(optarg, "-", 1) == 0) {
+                    break;
                 }
                 if ((aux = atoi(optarg)) < 10) {
                     perror("El alto del tablero no puede ser menor a 10");
@@ -71,28 +68,28 @@ int main(int argc, char *argv[]){
                 h = aux;
                 break;
             case 'd':
-                if (optarg == NULL) {
-                    perror("Falta el argumento para -d");
-                    exit(1);
+                if (optarg != NULL && strncmp(optarg, "-", 1) != 0) {
+
+                    delay = atoi(optarg);
                 }
-                delay = atoi(optarg);
+                else{
+                    printf("%s\n", optarg);
+                }
                 break;
             case 't':
-                if (optarg == NULL) {
-                    perror("Falta el argumento para -t");
-                    exit(1);
+                if (optarg == NULL || strncmp(optarg, "-", 1) == 0) {
+                    break;
                 }
                 timeout = atoi(optarg);
                 break;
             case 's':
-                if (optarg == NULL) {
-                    perror("Falta el argumento para -s");
-                    exit(1);
+                if (optarg == NULL || strncmp(optarg, "-", 1) == 0) {
+                    break;
                 }
                 seed = atoi(optarg);
                 break;
             case 'v':
-                if (optarg == NULL) {
+                if (optarg == NULL || strncmp(optarg, "-", 1) == 0) {
                     perror("Falta el argumento para -v");
                     exit(1);
                 }
@@ -118,49 +115,6 @@ int main(int argc, char *argv[]){
                 exit(1);
         }
     }
-    
-    /*for(int i = 1; i < argc; i++){ // unico detalle -p ULTIMO
-        if(strcmp(argv[i], "-w") == 0){
-            if((aux = atoi(argv[i+1])) < 10){
-                perror("El ancho del tablero no puede ser menor a 10");
-                exit(1);
-            }
-            w = aux;
-            i++;
-        }else if(strcmp(argv[i], "-h") == 0){
-            if((aux = atoi(argv[i+1])) < 10){
-                perror("El alto del tablero no puede ser menor a 10");
-                exit(1);
-            }
-            h = aux;
-            i++;
-        }else if(strcmp(argv[i], "-d") == 0){
-            delay = atoi(argv[i+1]);
-            i++;
-        }else if(strcmp(argv[i], "-t") == 0){
-            timeout = atoi(argv[i+1]);
-            i++;
-        }else if(strcmp(argv[i], "-s") == 0){
-            seed = atoi(argv[i+1]);
-            i++;
-        }else if(strcmp(argv[i], "-v") == 0){
-            //view = fopen(argv[i+1], "r"); // ver si estan bien los permisos
-            view=argv[i+1];
-            i++;
-        }else if(strcmp(argv[i], "-p") == 0){
-            i++;
-            int parametros[] = {w, h, 0};
-            firtsPlayer=i;
-            for(int j = i ; j < argc; j++){
-                if((j - i) > 9){
-                    perror("Maximo 9 jugadores");
-                    exit(1);
-                }
-                cantJug++;
-            }
-        }
-    }*/
-
     if(cantJug < 1){
         perror("Debe haber minimo un jugador");
         exit(1);
@@ -168,33 +122,36 @@ int main(int argc, char *argv[]){
     printf("termine de procesar args\n");
     game_t * game = (game_t*)createSHM(SHM_GAME_NAME,O_RDWR |  O_CREAT, sizeof(game_t)+sizeof(int)*w*h, 1);
     sync_t * sems = (sync_t*)createSHM(SHM_SYNC_NAME,O_RDWR |  O_CREAT, sizeof(sync_t), 1);
-    //falta inicializar los semaforos
     createSems(sems);
     setGame(game, cantJug, w, h);
     getBoard(game, seed);
     
-    
+    char *  argv2[4]={0};
+    argv2[3]=NULL;
     int viewRet;
     pid_t viewPID;
+    char height[MAXDIGITS]={0};
+    char width[MAXDIGITS]={0};
+    sprintf(height,"%d",h);
+    sprintf(width,"%d",w);
     //seria solo si pasan una view
     if(view != NULL){
         viewPID=fork();
         if(viewPID==0){
             printf(CLEAR);
-            printf("width = %d\nheight = %d\n delay = %dms\ntimeout = %ds\nseed=%d\nview = a\n",w,h,delay,timeout,seed);
-            return 0;
-            //execve()
+            printf("width = %d\nheight = %d\ndelay = %dms\ntimeout = %ds\nseed=%d\nview = %s\n",w,h,delay,timeout,seed,view);
+            argv2[0]=view;
+            argv2[1] = width;
+            argv2[2] = height;
+            execve(view,argv2,NULL);
         }
         //esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     }
     
-
     // ya ejecutado la view
     int pipefds[cantJug][2];
     setPlayers(game,pipefds,cantJug); // ahora quedan bien todos los pipes precreados y  los jugadores ya ubicados en el tablero
     
-    //ESPACIO PARA TERMINAR DE SETTEAR LAS COSAS DEL MASTER ANTES DE ARRANCAR EL JUEGO
-
     //PREPARACION DE LOS PLAYERS Y EXECVE DE C/U
     for(int i=0; i < cantJug; i++){ 
         pid_t childPID = fork();
@@ -206,10 +163,10 @@ int main(int argc, char *argv[]){
             safeClose(pipefds[i][0]);
             dup2(pipefds[i][1], STDOUT_FILENO);
             safeClose(pipefds[i][1]);
-            printf("%d",i);
-            return 0;//CAMBIAR ESTE RETURN POR EL EXECVE DE CADA PLAYER
-            // execve() falta ver que ejecuta
-        }else{
+            argv2[0]=argv[firtsPlayer+i];
+            return 0;
+            //execve(argv[firtsPlayer+i],argv2,NULL);
+        }else{ 
             game->players[i].pid = childPID;
         }
     }
@@ -225,6 +182,11 @@ int main(int argc, char *argv[]){
     struct timeval timeoutForSelect;
     char finished  = 0;
     while(!finished){
+        if(view!=NULL){
+            sem_post(&sems->haveToPrint);
+            sem_wait(&sems->finishedPrinting);
+            usleep(delay*1000);
+        }
         timeoutForSelect.tv_sec = timeout;
         timeoutForSelect.tv_usec = 0;
         int status = select(pipefds[cantJug - 1][0] + 1, &readFDS, NULL, NULL,&timeoutForSelect);
@@ -240,12 +202,13 @@ int main(int argc, char *argv[]){
             sem_post(&sems->masterMutex);
             sem_post(&sems->gameStatusMutex);
         }else{
-            
-            //PLAY
-
-
+            printf("Fijate q estoy en el else!!\n");
+            //makeMove(game,sems,&readFDS,pipefds,cantJug);
         }
     }
+    printf("salimooooo\n");
+    sem_post(&sems->haveToPrint);
+    sem_wait(&sems->finishedPrinting);
 
     if(view != NULL){
         waitpid(viewPID,&viewRet,0);
@@ -264,21 +227,6 @@ int main(int argc, char *argv[]){
     //falta cerrar semaforos antes de cerrar las shms
     closeSHM(SHM_GAME_NAME,(void *)game, sizeof(game_t)+sizeof(int)*w*h,1);
     closeSHM(SHM_SYNC_NAME,(void *)sems, sizeof(sync_t),1);
-
-    /*
-   
-                    game->players[cantJug].score = 0;
-                    game->players[cantJug].validMoves = 0;
-                    game->players[cantJug].invalidMoves = 0;
-                    game->players[cantJug].blocked = false;
-                    game->cantPlayers = cantJug;
-                    execve(argv[j], parametros, NULL);
-    */
-
-    /*if(game->cantPlayers == 0){
-        perror("At least one player must be specified using -p");
-        exit(1);
-    }*/
    return 0;
 }
 
@@ -287,10 +235,6 @@ void setGame(game_t * game,unsigned int cantJug,  unsigned int  w, unsigned int 
     game->height = h;
     game->cantPlayers = cantJug;
     game->finished = false;
-    /* *delay = 200;
-    *timeout = 10;
-    *seed = time(NULL);
-    *view = NULL;*/
 }
 
 void getBoard(game_t * game, unsigned int seed){
@@ -315,7 +259,7 @@ void setPlayersPos(game_t * game){
             game->players[i].posX = (unsigned short)((game->width / 2) + b * cos(theta));
             game->players[i].posY = (unsigned short)((game->height / 2) + a * sin(theta));
 
-            printf("Player %d: (%d, %d)\n", i, game->players[i].posX, game->players[i].posY);
+            //printf("Player %d: (%d, %d)\n", i, game->players[i].posX, game->players[i].posY);
 
             // Verificar que las posiciones estén dentro de los límites del tablero
             if (game->players[i].posX >= 0 && game->players[i].posX < game->width && game->players[i].posY >= 0 && game->players[i].posY < game->height) {
@@ -341,29 +285,44 @@ void setPlayers(game_t * game,int pipefds[][2],int cantJug){
     setPlayersPos(game);
 }
 
-void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug,int viewPID){ //el PID de la view es para saber si se ejecuto o no
+void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug){ //el PID de la view es para saber si se ejecuto o no
     static int playerTurn = 0;
+    unsigned char dir;
     for(int i = 0; i < cantJug; i++){
-        if(!game->players[i].blocked){
-            unsigned char dir;
-            int bytesRead = read(pipefds[i][0], &aux, sizeof(unsigned char));
+        playerTurn = (playerTurn + i)%cantJug;
+        if(!game->players[playerTurn].blocked && FD_ISSET(pipefds[playerTurn][0],readFDS)){
+            int bytesRead = read(pipefds[playerTurn][0], &dir, sizeof(unsigned char));
             if (bytesRead < 0) {
                 perror("read");
                 exit(EXIT_FAILURE);
             }else if(bytesRead == 0){
-                game->players[i].blocked = true;
-                FD_CLR(pipefds[i][0], readFDS);
+                printf("AAAAAAAAAAAAAAAAAAA\n");
+                fflush(stdout);
+                game->players[playerTurn].blocked = true;
+                FD_CLR(pipefds[playerTurn][0], readFDS);
             }else{ //salgo del ciclo unicamente si se proceso un movimiento
-                
-                playerTurn= (playerTurn + 1)%cantJug;
+                printf("mandando un move magico\n");
+                move(game,sems,playerTurn,cantJug,dir);
                 break;
             }
         }
-        playerTurn= (playerTurn + 1)%cantJug;
     }
+    if(isGameEnded(game,cantJug)){
+        game->finished = true;
+    };
 }
 
-void move(game_t * game, sync_t sems,int playerNum, unsigned char dirIdx){
+int isGameEnded(game_t * game,int cantJug){
+    int ret=1;
+    for(int i=0;i<cantJug && ret ;i++){
+        if(!game->players[i].blocked){
+            ret=0;
+        }
+    }
+    return ret;
+}
+
+void move(game_t * game, sync_t * sems,int playerNum,int cantJug, unsigned char dirIdx){
     
     sem_wait(&sems->masterMutex);
     sem_wait(&sems->gameStatusMutex);
@@ -371,13 +330,13 @@ void move(game_t * game, sync_t sems,int playerNum, unsigned char dirIdx){
     unsigned short w,h;
     w = game->width;
     h = game->height;
-    player_t* playerToMove= &game->players[playerNum]
+    player_t* playerToMove= &game->players[playerNum];
     if ((newPosValue=game->board[w*(playerToMove->posY+dirs[dirIdx][1])+dirs[dirIdx][0]+playerToMove->posX])>0){
         playerToMove->score+=newPosValue;
-        playertoMove->posX+=dirs[dirIdx][0];
-        playertoMove->posY+=dirs[dirIdx][1];
+        playerToMove->posX+=dirs[dirIdx][0];
+        playerToMove->posY+=dirs[dirIdx][1];
         playerToMove->validMoves++;
-        checkAndBlockPlayers(game,playerToMove->posX,playerToMove->posY,cantJug);//tengo q cheackear si hay jugadores bloqueados unicamente si 
+        checkAndBlockPlayer(game,playerToMove->posX,playerToMove->posY);//tengo q cheackear si hay jugadores bloqueados unicamente si 
                                                                                  // hubo un cambio en el tablero, sino no es necesario porque 
                                                                                  //no cambio el estado  del tablero.
     }else{
@@ -396,7 +355,7 @@ void createSems(sync_t * sems){
     sems->playersReading = 0;
 }
 
-void checkAndBlockPlayer(game_t * game,int playerNum,int notFirstTime){ // me falta ver si alguno de los adyacentes al lugar, no es otra cabeza y tengo q ponerla bloqueada
+void checkAndBlockPlayer(game_t * game,int playerNum,int firstTime){ // me falta ver si alguno de los adyacentes al lugar, no es otra cabeza y tengo q ponerla bloqueada
     unsigned short x,y;
     int cantPosOcuppied=0;
     int isOtherPlayer = 0;
@@ -405,14 +364,14 @@ void checkAndBlockPlayer(game_t * game,int playerNum,int notFirstTime){ // me fa
     x= game->players[playerNum].posX;
     y= game->players[playerNum].posY;
     for(int i = 0; i < 8; i++){
-        pos =w*(y+dirs[i][1])+dirs[i][0]+x;
-        if(y+dirs[i][1]>=0 && y+dirs[i][1]<h && dirs[i][0]+x >=0 && dirs[i][0]+x < w ){
+        pos =game->width *(y+dirs[i][1])+dirs[i][0]+x;
+        if(y+dirs[i][1]>=0 && y+dirs[i][1]<game->height && dirs[i][0]+x >=0 && dirs[i][0]+x < game->width ){
             if((aux = game->board[pos] ) < 0){ 
                 cantPosOcuppied++;
-                if(y+dirs[i][1] == game->players[-aux].posY && x+dirs[i][0] == game->players[-aux].posX){
-                    checkAndBlockPlayer(game, -aux, 1);
+                if(firstTime && y+dirs[i][1] == game->players[-aux].posY && x+dirs[i][0] == game->players[-aux].posX){
+                    checkAndBlockPlayer(game, -aux, 0);
                 }
-            }else if(notFirstTime){
+            }else if(!firstTime){
                 break;
             }
         }

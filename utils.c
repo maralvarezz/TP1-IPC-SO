@@ -1,5 +1,16 @@
 #include "./utils.h"
 //crea una memoria compartida o la abre y retorna un puntero a la misma
+
+int dirs[][2]=   {{0,-1},
+                    {1,-1},
+                    {1,0},
+                    {1,1},
+                    {0,1},
+                    {-1,1},
+                    {-1,0},
+                    {-1,-1}};
+
+
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate){
     int fd = shm_open(name , flags , 0666);
     if(fd ==-1){
