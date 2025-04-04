@@ -53,6 +53,15 @@ typedef struct {
 } sync_t;
     
 
+int dirs[][2]=   {{0,-1},
+                    {1,-1},
+                    {1,0},
+                    {1,1},
+                    {0,1},
+                    {-1,1},
+                    {-1,0},
+                    {-1,-1}};
+
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
 int closeSHM(char * name,void * dir,size_t size,char haveToUnlink);
 

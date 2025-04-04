@@ -10,21 +10,18 @@ void setPlayersPos(game_t * game);
 void setPlayers(game_t * game,int pipefds[][2],int cantJug);
 void createSems(sync_t * sems);
 void closeSems(sync_t * sems);
+void checkAndBlockPlayer(game_t * game,int playerNum);
+void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug,int viewPID);
+void move(game_t * game, sync_t sems,int playerNum, unsigned char dirIdx);
+
 
 
 void safeSem_init(sem_t* sem, int shared, int value);
-void  safeClose(int fd);
+void safeClose(int fd);
 
 void closeAllNotNeededFD(int pipefds[][2],int cantJug,int playerNum);
+extern int dirs[][2];
 
-static int dirs[][2]=   {{0,-1},
-                        {1,-1},
-                        {1,0},
-                        {1,1},
-                        {0,1},
-                        {-1,1},
-                        {-1,0},
-                        {-1,-1}};
 
 
 int main(int argc, char *argv[]){
@@ -227,7 +224,6 @@ int main(int argc, char *argv[]){
     
     struct timeval timeoutForSelect;
     char finished  = 0;
-    int playerTurn=0;
     while(!finished){
         timeoutForSelect.tv_sec = timeout;
         timeoutForSelect.tv_usec = 0;
@@ -245,6 +241,9 @@ int main(int argc, char *argv[]){
             sem_post(&sems->gameStatusMutex);
         }else{
             
+            //PLAY
+
+
         }
     }
 
@@ -265,10 +264,6 @@ int main(int argc, char *argv[]){
     //falta cerrar semaforos antes de cerrar las shms
     closeSHM(SHM_GAME_NAME,(void *)game, sizeof(game_t)+sizeof(int)*w*h,1);
     closeSHM(SHM_SYNC_NAME,(void *)sems, sizeof(sync_t),1);
-
-
-
-    
 
     /*
    
@@ -356,16 +351,15 @@ void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], in
                 perror("read");
                 exit(EXIT_FAILURE);
             }else if(bytesRead == 0){
-                printf("El jugador %d ha cerrado su FD.\n", i);
                 game->players[i].blocked = true;
-                FD_CLR(pipefds[i][0], readFDS)	;
+                FD_CLR(pipefds[i][0], readFDS);
             }else{ //salgo del ciclo unicamente si se proceso un movimiento
                 
-                
+                playerTurn= (playerTurn + 1)%cantJug;
                 break;
             }
-
         }
+        playerTurn= (playerTurn + 1)%cantJug;
     }
 }
 
@@ -402,16 +396,23 @@ void createSems(sync_t * sems){
     sems->playersReading = 0;
 }
 
-void checkAndBlockPlayers(game_t * game,int playerNum, int cantJug){
+void checkAndBlockPlayer(game_t * game,int playerNum,int notFirstTime){ // me falta ver si alguno de los adyacentes al lugar, no es otra cabeza y tengo q ponerla bloqueada
     unsigned short x,y;
     int cantPosOcuppied=0;
-    x= game->players[playerNum].posX
-    y= game->players[playerNum].posY
+    int isOtherPlayer = 0;
+    int aux;
+    int pos;
+    x= game->players[playerNum].posX;
+    y= game->players[playerNum].posY;
     for(int i = 0; i < 8; i++){
+        pos =w*(y+dirs[i][1])+dirs[i][0]+x;
         if(y+dirs[i][1]>=0 && y+dirs[i][1]<h && dirs[i][0]+x >=0 && dirs[i][0]+x < w ){
-            if((aux = game->board[w*(y+dirs[i][1])+dirs[i][0]+x] ) < 0){ 
+            if((aux = game->board[pos] ) < 0){ 
                 cantPosOcuppied++;
-            }else{
+                if(y+dirs[i][1] == game->players[-aux].posY && x+dirs[i][0] == game->players[-aux].posX){
+                    checkAndBlockPlayer(game, -aux, 1);
+                }
+            }else if(notFirstTime){
                 break;
             }
         }
@@ -420,6 +421,7 @@ void checkAndBlockPlayers(game_t * game,int playerNum, int cantJug){
         game->players[playerNum].blocked=true;
     }
 }
+
 
 void safeSem_init(sem_t* sem, int shared, int value){
     if(sem_init(sem,shared,value)==-1){

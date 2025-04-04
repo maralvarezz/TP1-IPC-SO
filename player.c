@@ -1,6 +1,7 @@
 #include "./utils.h"
 #define WRITEFD 1
-#define CANTDIR 8
+
+extern int dirs[][2];
 
 void move(unsigned char * direction);
 void getMove(game_t * game,int w,int h, int playerNum,sync_t *sems,unsigned char * direct, int  totalMoves);
@@ -55,14 +56,6 @@ void move(unsigned char * direction){
  */
 
  void getMove(game_t * game,int w,int h, int playerNum,sync_t *sems,unsigned char * direct, int  totalMoves){
-    int dirs[][2]= {{0,-1},
-                    {1,-1},
-                    {1,0},
-                    {1,1},
-                    {0,1},
-                    {-1,1},
-                    {-1,0},
-                    {-1,-1}};
     int max = 0;
     *direct = 15; 
     sem_wait(&sems->masterMutex);
