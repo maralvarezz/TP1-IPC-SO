@@ -164,8 +164,7 @@ int main(int argc, char *argv[]){
             dup2(pipefds[i][1], STDOUT_FILENO);
             safeClose(pipefds[i][1]);
             argv2[0]=argv[firtsPlayer+i];
-            return 0;
-            //execve(argv[firtsPlayer+i],argv2,NULL);
+            execve(argv[firtsPlayer+i],argv2,NULL);
         }else{ 
             game->players[i].pid = childPID;
         }
@@ -182,11 +181,6 @@ int main(int argc, char *argv[]){
     struct timeval timeoutForSelect;
     char finished  = 0;
     while(!finished){
-        if(view!=NULL){
-            sem_post(&sems->haveToPrint);
-            sem_wait(&sems->finishedPrinting);
-            usleep(delay*1000);
-        }
         timeoutForSelect.tv_sec = timeout;
         timeoutForSelect.tv_usec = 0;
         int status = select(pipefds[cantJug - 1][0] + 1, &readFDS, NULL, NULL,&timeoutForSelect);
@@ -202,8 +196,13 @@ int main(int argc, char *argv[]){
             sem_post(&sems->masterMutex);
             sem_post(&sems->gameStatusMutex);
         }else{
+            if(view!=NULL){
+                sem_post(&sems->haveToPrint);
+                sem_wait(&sems->finishedPrinting);
+                usleep(delay*1000);
+            }
             printf("Fijate q estoy en el else!!\n");
-            //makeMove(game,sems,&readFDS,pipefds,cantJug);
+            makeMove(game,sems,&readFDS,pipefds,cantJug);
         }
     }
     printf("salimooooo\n");
