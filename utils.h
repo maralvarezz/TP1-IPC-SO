@@ -48,16 +48,14 @@ typedef struct {
 typedef struct {
     sem_t haveToPrint;
     sem_t finishedPrinting; 
-    sem_t masterMutex;   // masterWantToModify
-    sem_t gameStatusMutex; //
+    sem_t wantToModifyMutex;   
+    sem_t gameStatusMutex;
     sem_t playersReadingMutex; 
     unsigned int playersReading; 
 } sync_t;
     
 
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
-int closeSHM(char * name,void * dir,size_t size,char haveToUnlink);
+void closeSHM(char * name,void * dir,size_t size,char haveToUnlink);
 
 #endif
-
-

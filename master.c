@@ -1,75 +1,44 @@
-#include "./utils.h"
-
-#define MAXDIGITS 11
-#define SHARED 1
-
-void setGame(game_t * game,unsigned int cantJug, unsigned int w, unsigned int h);
-void getBoard(game_t * game, unsigned int seed);
-void setPlayersPos(game_t * game);
-void setPlayers(game_t * game,int pipefds[][2],int cantJug);
-void createSems(sync_t * sems);
-void closeSems(sync_t * sems);
-void checkAndBlockPlayer(game_t * game,int playerNum,int firstTime);
-void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug);
-void move(game_t * game, sync_t * sems,int playerNum,int cantJug, unsigned char dirIdx);
-int isGameEnded(game_t * game,int cantJug);
-
-void safeSem_init(sem_t* sem, int shared, int value);
-void safeClose(int fd);
-
-void closeAllNotNeededFD(int pipefds[][2],int cantJug,int playerNum);
-extern int dirs[][2];
-
-
+#include "./masterLib.h"
 
 int main(int argc, char *argv[]){
     if(argc < 3){
         perror("Cantidad de argumentos incorrectos");
         exit(1);
     }
-    //pruebas
-    //FILE * view = NULL;
     char * view = NULL;
-    //auxiliar para los players y sus files porque no se como se manejan
-    //FILE * Fplayers[];
-    int firtsPlayer;
-    unsigned int w = 10;
-    unsigned int h = 10;
+    int firtsPlayer, param, option;
+    unsigned int width = 10;
+    unsigned int height = 10;
     unsigned int delay = 200;
     unsigned int timeout = 10;
     unsigned int seed = time(NULL);
-    int aux;
-    int cantJug = 0;
-    int option;
+    int cantPlayers = 0;
 
-    /*CORREGIR EL FORMATP DE ESTO*/
     while ((option = getopt(argc, argv, "w:h:d:t:s:v:p:")) != -1) {
-     //   printf("Procesando opción: -%c, optarg: %s, optind: %d\n", option, optarg, optind);
-
         switch (option) {
             case 'w':
                 if (optarg == NULL || strncmp(optarg, "-", 1) == 0) {
                     break;
                 }
-                if ((aux = atoi(optarg)) < 10) {
+                if ((param = atoi(optarg)) < 10) {
                     perror("El ancho del tablero no puede ser menor a 10");
                     exit(1);
                 }
-                w = aux;
+                width = param;
                 break;
             case 'h':
                 if (optarg == NULL || strncmp(optarg, "-", 1) == 0) {
                     break;
                 }
-                if ((aux = atoi(optarg)) < 10) {
+                if ((param = atoi(optarg)) < 10) {
                     perror("El alto del tablero no puede ser menor a 10");
                     exit(1);
                 }
-                h = aux;
+                height = param;
+                ;
                 break;
             case 'd':
                 if (optarg != NULL && strncmp(optarg, "-", 1) != 0) {
-
                     delay = atoi(optarg);
                 }
                 else{
@@ -106,300 +75,121 @@ int main(int argc, char *argv[]){
                         perror("Máximo 9 jugadores");
                         exit(1);
                     }
-                    cantJug++;
+                    cantPlayers++;
                 }
-                optind = argc; // Saltar el resto de los argumentos
+                optind = argc;
                 break;
             default:
                 fprintf(stderr, "Opción no reconocida: -%c\n", optopt);
                 exit(1);
         }
     }
-    if(cantJug < 1){
+
+    if(cantPlayers < 1){
         perror("Debe haber minimo un jugador");
         exit(1);
     }
-    printf("termine de procesar args\n");
-    game_t * game = (game_t*)createSHM(SHM_GAME_NAME,O_RDWR |  O_CREAT, sizeof(game_t)+sizeof(int)*w*h, 1);
-    sync_t * sems = (sync_t*)createSHM(SHM_SYNC_NAME,O_RDWR |  O_CREAT, sizeof(sync_t), 1);
+    
+    game_t * game = (game_t *) createSHM(SHM_GAME_NAME, O_RDWR |  O_CREAT, sizeof(game_t) + sizeof(int) * width * height, 1);
+    sync_t * sems = (sync_t *) createSHM(SHM_SYNC_NAME, O_RDWR |  O_CREAT, sizeof(sync_t), 1);
     createSems(sems);
-    setGame(game, cantJug, w, h);
+    setGame(game, cantPlayers, width, height);
     getBoard(game, seed);
     
-    char *  argv2[4]={0};
-    argv2[3]=NULL;
+    char * argv2[4] = {0};
+    argv2[3] = NULL;
     int viewRet;
     pid_t viewPID;
-    char height[MAXDIGITS]={0};
-    char width[MAXDIGITS]={0};
-    sprintf(height,"%d",h);
-    sprintf(width,"%d",w);
-    //seria solo si pasan una view
+    char argvHeight[MAXDIGITS] = {0};
+    char argvWidth[MAXDIGITS] = {0};
+    sprintf(argvHeight, "%d", height);
+    sprintf(argvWidth, "%d", width);
+    argv2[1] = argvWidth;
+    argv2[2] = argvHeight;
+
+    printf(CLEAR);
+    printf("width = %d\nheight = %d\ndelay = %dms\ntimeout = %ds\nseed=%d\nview = %s\n", width, height, delay, timeout, seed, view != NULL?view : " - ");
+
     if(view != NULL){
-        viewPID=fork();
-        if(viewPID==0){
-            printf(CLEAR);
-            printf("width = %d\nheight = %d\ndelay = %dms\ntimeout = %ds\nseed=%d\nview = %s\n",w,h,delay,timeout,seed,view);
-            argv2[0]=view;
-            argv2[1] = width;
-            argv2[2] = height;
-            execve(view,argv2,NULL);
+        viewPID = fork();
+        if(viewPID == 0){
+            argv2[0] = view;
+            execve(view, argv2, NULL);
         }
-        //esto es momentaneo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     }
+
+    int pipefds[cantPlayers][2];
+    initializePlayers(game, pipefds, cantPlayers); 
     
-    // ya ejecutado la view
-    int pipefds[cantJug][2];
-    setPlayers(game,pipefds,cantJug); // ahora quedan bien todos los pipes precreados y  los jugadores ya ubicados en el tablero
-    
-    //PREPARACION DE LOS PLAYERS Y EXECVE DE C/U
-    for(int i=0; i < cantJug; i++){ 
+    for(int i = 0; i < cantPlayers; i++){ 
         pid_t childPID = fork();
         if(childPID == -1){
             perror("fork");
             exit(EXIT_FAILURE);
         }else if(childPID == 0){ 
-            closeAllNotNeededFD(pipefds,cantJug,i);
+            closeAllNotNeededFD(pipefds, cantPlayers, i);
             safeClose(pipefds[i][0]);
             dup2(pipefds[i][1], STDOUT_FILENO);
             safeClose(pipefds[i][1]);
-            argv2[0]=argv[firtsPlayer+i];
-            execve(argv[firtsPlayer+i],argv2,NULL);
+            argv2[0] = argv[firtsPlayer + i];
+            execve(argv[firtsPlayer + i], argv2, NULL);
         }else{ 
             game->players[i].pid = childPID;
         }
     }
-    int playersReturns[cantJug];
-    fd_set readFDS;
-    FD_ZERO(&readFDS); // inicializo en 0 el fd_set
 
-    for(int i = 0; i < cantJug; i++) {
+    int playersReturns[cantPlayers];
+    fd_set readFDS, masterFDS;
+    FD_ZERO(&readFDS); 
+
+    for(int i = 0; i < cantPlayers; i++) {
         safeClose(pipefds[i][1]);
         FD_SET(pipefds[i][0], &readFDS);
     }
-    
+
+    masterFDS = readFDS; 
     struct timeval timeoutForSelect;
-    char finished  = 0;
+    char finished = 0;
     while(!finished){
+        readFDS = masterFDS; 
         timeoutForSelect.tv_sec = timeout;
         timeoutForSelect.tv_usec = 0;
-        int status = select(pipefds[cantJug - 1][0] + 1, &readFDS, NULL, NULL,&timeoutForSelect);
+        int status = select(pipefds[cantPlayers - 1][0] + 1, &readFDS, NULL, NULL, &timeoutForSelect);
         if(status == -1){
             perror("select");
             exit(EXIT_FAILURE);
         }else if(status == 0){
+            finishGame(game, sems);
             finished = 1;
-            //espero a que todos los jugadores hayan salido del game board y aviso que termino el juego
-            sem_wait(&sems->masterMutex);
-            sem_wait(&sems->gameStatusMutex);
-            game->finished=true;
-            sem_post(&sems->masterMutex);
-            sem_post(&sems->gameStatusMutex);
-        }else{
-            if(view!=NULL){
+            if(view != NULL){
                 sem_post(&sems->haveToPrint);
                 sem_wait(&sems->finishedPrinting);
-                usleep(delay*1000);
             }
-            printf("Fijate q estoy en el else!!\n");
-            makeMove(game,sems,&readFDS,pipefds,cantJug);
+        }else{
+            if((makeMove(game, sems, &readFDS, &masterFDS, pipefds, cantPlayers, &finished) == 1 ) && view != NULL){
+                sem_post(&sems->haveToPrint);
+                sem_wait(&sems->finishedPrinting);
+                usleep(delay * 1000);
+            }
+            if(finished){
+                finishGame(game, sems);
+            }
         }
     }
-    printf("salimooooo\n");
-    sem_post(&sems->haveToPrint);
-    sem_wait(&sems->finishedPrinting);
 
     if(view != NULL){
-        waitpid(viewPID,&viewRet,0);
-    }
-    
-    for(int i=0; i < cantJug; i++){
-        waitpid(game->players[i].pid, &playersReturns[i], 0);
-    }
-    
-    for(int i = 0; i < cantJug; i++){
-        printf("El jugador %d (%s) devolvio el valor %d\n", i, game->players[i].playerName, playersReturns[i]);
-    }
-    if(view != NULL){
+        waitpid(viewPID, &viewRet, 0);
         printf("El view devolvio el valor %d\n", viewRet);
     }
-    //falta cerrar semaforos antes de cerrar las shms
-    closeSHM(SHM_GAME_NAME,(void *)game, sizeof(game_t)+sizeof(int)*w*h,1);
-    closeSHM(SHM_SYNC_NAME,(void *)sems, sizeof(sync_t),1);
-   return 0;
-}
-
-void setGame(game_t * game,unsigned int cantJug,  unsigned int  w, unsigned int  h){
-    game->width = w;
-    game->height = h;
-    game->cantPlayers = cantJug;
-    game->finished = false;
-}
-
-void getBoard(game_t * game, unsigned int seed){
-    srand(seed);
-    for(int i = 0; i < (game->height * (game->width)); i++){
-        game->board[i] = (rand() % 9) + 1;
-    }
-}
-
-void setPlayersPos(game_t * game){
-    unsigned short a = (game->height / 2) * 0.8; // Semieje vertical reducido
-    unsigned short b = (game->width / 2) * 0.8;  // Semieje horizontal reducido
-
-    if(game->cantPlayers == 1){
-        game->players[0].posX = game->width / 2; // Centro del tablero
-        game->players[0].posY = game->height / 2;
-    } else {
-        for(int i = 0; i < game->cantPlayers; i++){
-            double theta = (2.0 * 3.14 * i) / game->cantPlayers; // Ángulo en radianes para cada jugador
-
-            // Calcular las posiciones en el borde del óvalo reducido
-            game->players[i].posX = (unsigned short)((game->width / 2) + b * cos(theta));
-            game->players[i].posY = (unsigned short)((game->height / 2) + a * sin(theta));
-
-            //printf("Player %d: (%d, %d)\n", i, game->players[i].posX, game->players[i].posY);
-
-            // Verificar que las posiciones estén dentro de los límites del tablero
-            if (game->players[i].posX >= 0 && game->players[i].posX < game->width && game->players[i].posY >= 0 && game->players[i].posY < game->height) {
-                game->board[game->players[i].posY * game->width + game->players[i].posX] = -i; // Colocar al jugador en el tablero
-            }
-        }
-    }
-}
-
-void setPlayers(game_t * game,int pipefds[][2],int cantJug){
-    for(int i=0;i<cantJug;i++){
-        char aux[] = {'P','l','a','y','e','r',' ',i + '0','\0'};
-        strcpy(game->players[i].playerName,aux);
-        game->players[i].score = 0;
-        game->players[i].validMoves = 0;
-        game->players[i].invalidMoves = 0;
-        game->players[i].blocked = false;
-        if(pipe(pipefds[i])==-1){
-            perror("pipe");
-            exit(EXIT_FAILURE);
-        }
-    }
-    setPlayersPos(game);
-}
-
-void makeMove(game_t* game, sync_t * sems,fd_set * readFDS, int pipefds[][2], int cantJug){ //el PID de la view es para saber si se ejecuto o no
-    static int playerTurn = 0;
-    unsigned char dir;
-    for(int i = 0; i < cantJug; i++){
-        playerTurn = (playerTurn + i)%cantJug;
-        if(!game->players[playerTurn].blocked && FD_ISSET(pipefds[playerTurn][0],readFDS)){
-            int bytesRead = read(pipefds[playerTurn][0], &dir, sizeof(unsigned char));
-            if (bytesRead < 0) {
-                perror("read");
-                exit(EXIT_FAILURE);
-            }else if(bytesRead == 0){
-                printf("AAAAAAAAAAAAAAAAAAA\n");
-                fflush(stdout);
-                game->players[playerTurn].blocked = true;
-                FD_CLR(pipefds[playerTurn][0], readFDS);
-            }else{ //salgo del ciclo unicamente si se proceso un movimiento
-                printf("mandando un move magico\n");
-                move(game,sems,playerTurn,cantJug,dir);
-                break;
-            }
-        }
-    }
-    if(isGameEnded(game,cantJug)){
-        game->finished = true;
-    };
-}
-
-int isGameEnded(game_t * game,int cantJug){
-    int ret=1;
-    for(int i=0;i<cantJug && ret ;i++){
-        if(!game->players[i].blocked){
-            ret=0;
-        }
-    }
-    return ret;
-}
-
-void move(game_t * game, sync_t * sems,int playerNum,int cantJug, unsigned char dirIdx){
     
-    sem_wait(&sems->masterMutex);
-    sem_wait(&sems->gameStatusMutex);
-    int newPosValue;
-    unsigned short w,h;
-    w = game->width;
-    h = game->height;
-    player_t* playerToMove= &game->players[playerNum];
-    if ((newPosValue=game->board[w*(playerToMove->posY+dirs[dirIdx][1])+dirs[dirIdx][0]+playerToMove->posX])>0){
-        playerToMove->score+=newPosValue;
-        playerToMove->posX+=dirs[dirIdx][0];
-        playerToMove->posY+=dirs[dirIdx][1];
-        playerToMove->validMoves++;
-        checkAndBlockPlayer(game,playerToMove->posX,playerToMove->posY);//tengo q cheackear si hay jugadores bloqueados unicamente si 
-                                                                                 // hubo un cambio en el tablero, sino no es necesario porque 
-                                                                                 //no cambio el estado  del tablero.
-    }else{
-        playerToMove->invalidMoves++;
+    for(int i=0; i < cantPlayers; i++){
+        safeClose(pipefds[i][0]);
+        waitpid(game->players[i].pid, &playersReturns[i], 0);
+        printf("El jugador %d (%s) retorno el valor %d con puntaje %d / %d / %d \n", i, game->players[i].playerName, playersReturns[i], game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves);
     }
-    sem_post(&sems->masterMutex);
-    sem_post(&sems->gameStatusMutex);
-}
-//falte ver en que arrancan los semaforos
-void createSems(sync_t * sems){
-    safeSem_init(&sems->haveToPrint,SHARED,0);
-    safeSem_init(&sems->finishedPrinting,SHARED,0);
-    safeSem_init(&sems->masterMutex,SHARED,1);
-    safeSem_init(&sems->gameStatusMutex,SHARED,1);
-    safeSem_init(&sems->playersReadingMutex,SHARED,1);
-    sems->playersReading = 0;
-}
-
-void checkAndBlockPlayer(game_t * game,int playerNum,int firstTime){ // me falta ver si alguno de los adyacentes al lugar, no es otra cabeza y tengo q ponerla bloqueada
-    unsigned short x,y;
-    int cantPosOcuppied=0;
-    int isOtherPlayer = 0;
-    int aux;
-    int pos;
-    x= game->players[playerNum].posX;
-    y= game->players[playerNum].posY;
-    for(int i = 0; i < 8; i++){
-        pos =game->width *(y+dirs[i][1])+dirs[i][0]+x;
-        if(y+dirs[i][1]>=0 && y+dirs[i][1]<game->height && dirs[i][0]+x >=0 && dirs[i][0]+x < game->width ){
-            if((aux = game->board[pos] ) < 0){ 
-                cantPosOcuppied++;
-                if(firstTime && y+dirs[i][1] == game->players[-aux].posY && x+dirs[i][0] == game->players[-aux].posX){
-                    checkAndBlockPlayer(game, -aux, 0);
-                }
-            }else if(!firstTime){
-                break;
-            }
-        }
-    }
-    if(cantPosOcuppied == 8){
-        game->players[playerNum].blocked=true;
-    }
-}
-
-
-void safeSem_init(sem_t* sem, int shared, int value){
-    if(sem_init(sem,shared,value)==-1){
-        perror("sem_init ");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void closeAllNotNeededFD(int pipefds[][2],int cantJug,int playerNum){
-    for(int i=0;i<cantJug;i++){
-        if(i!=playerNum){
-            safeClose(pipefds[i][0]);
-            safeClose(pipefds[i][1]);
-        }
-    }
-}
-
-void safeClose(int fd){
-    if(close(fd)==-1){
-        perror("close");
-        exit(EXIT_FAILURE);
-    }
+    
+    closeSems(sems);
+    closeSHM(SHM_GAME_NAME, (void *)game, sizeof(game_t) + sizeof(int) * width * height, 1);
+    closeSHM(SHM_SYNC_NAME, (void *)sems, sizeof(sync_t), 1);
+    return 0;
 }

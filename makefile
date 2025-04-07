@@ -3,12 +3,12 @@ CC = gcc
 CFLAGS = -std=gnu99 -Wall
 LDFLAGS = -lrt -lpthread -lm
 
-all: player view
+all: player view master
 
 player: player.c utils.c
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) 
 
-master: master.c utils.c
+master: master.c utils.c masterLib.c
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 

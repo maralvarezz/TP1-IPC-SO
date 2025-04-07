@@ -1,5 +1,4 @@
 #include "./utils.h"
-//crea una memoria compartida o la abre y retorna un puntero a la misma
 
 int dirs[][2]=   {{0,-1},
                     {1,-1},
@@ -37,7 +36,7 @@ void * createSHM(char * name,int flags, size_t size, char haveToTruncate){
     return toRet;
 }
 
-int closeSHM(char * name,void * dir,size_t size,char haveToUnlink){
+void closeSHM(char * name,void * dir,size_t size,char haveToUnlink){
     if (munmap(dir,size) == -1) {
         perror("munmap");
         exit(EXIT_FAILURE);
@@ -48,5 +47,4 @@ int closeSHM(char * name,void * dir,size_t size,char haveToUnlink){
             exit(EXIT_FAILURE);
         }
     }
-    return 0;
 }
