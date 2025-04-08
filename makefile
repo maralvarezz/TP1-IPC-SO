@@ -11,10 +11,10 @@ player: player.c utils.c
 master: master.c utils.c masterLib.c
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-
 view: view.c utils.c
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) 
 
 clean:
 	rm -f player  view  master
+
 .PHONY: all clean
