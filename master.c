@@ -111,10 +111,18 @@ int main(int argc, char *argv[]){
     printf("width = %d\nheight = %d\ndelay = %dms\ntimeout = %ds\nseed=%d\nview = %s\n", width, height, delay, timeout, seed, view != NULL?view : " - ");
 
     if(view != NULL){
-        viewPID = fork();
-        if(viewPID == 0){
-            argv2[0] = view;
-            execve(view, argv2, NULL);
+        if (access(view, X_OK) == 0) {
+            viewPID = fork();
+            if(viewPID == 0){
+                argv2[0] = view;
+                if(execve(view, argv2, NULL)==-1){
+                    perror("execve view");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }else{
+            printf("view NO ejecutable\n");
+            view=NULL;
         }
     }
 
@@ -161,7 +169,7 @@ int main(int argc, char *argv[]){
         }else if(status == 0){
             finishGame(game, sems);
             finished = 1;
-            if(view != NULL){
+            if(viewPID != 0){
                 sem_post(&sems->haveToPrint);
                 sem_wait(&sems->finishedPrinting);
             }
