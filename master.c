@@ -169,14 +169,14 @@ int main(int argc, char *argv[]){
         }else if(status == 0){
             finishGame(game, sems);
             finished = 1;
-            if(viewPID != 0){
-                sem_post(&sems->haveToPrint);
-                sem_wait(&sems->finishedPrinting);
+            if(view != NULL){
+                mySemPost(&sems->haveToPrint);
+                mySemWait(&sems->finishedPrinting);
             }
         }else{
             if((makeMove(game, sems, &readFDS, &masterFDS, pipefds, cantPlayers, &finished) == 1 ) && view != NULL){
-                sem_post(&sems->haveToPrint);
-                sem_wait(&sems->finishedPrinting);
+                mySemPost(&sems->haveToPrint);
+                mySemWait(&sems->finishedPrinting);
                 usleep(delay * 1000);
             }
             if(finished){
@@ -187,7 +187,7 @@ int main(int argc, char *argv[]){
 
     if(view != NULL){
         waitpid(viewPID, &viewRet, 0);
-        printf("El view devolvio el valor %d\n", viewRet);
+        printf("El view (%s) devolvio el valor %d\n", view ,viewRet);
     }
     
     for(int i=0; i < cantPlayers; i++){

@@ -18,7 +18,6 @@ int makeMove(game_t * game, sync_t * sems, fd_set * readFDS, fd_set * masterFDS,
 void move(game_t * game, sync_t * sems, int playerNum, int cantJug, unsigned char dirIdx);
 int isGameEnded(game_t * game, int cantPlayers);
 void finishGame(game_t * game, sync_t * sems);
-void safeSem_init(sem_t* sem, int shared, int value);
 void safeClose(int fd);
 void closeAllNotNeededFD(int pipefds[][2], int cantJug, int playerNum);
 

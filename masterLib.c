@@ -8,11 +8,11 @@ void setGame(game_t * game, unsigned int cantPlayers, unsigned int  width, unsig
 }
 
 void finishGame(game_t * game, sync_t * sems){
-    sem_wait(&sems->wantToModifyMutex);
-    sem_wait(&sems->gameStatusMutex);
+    mySemWait(&sems->wantToModifyMutex);
+    mySemWait(&sems->gameStatusMutex);
     game->finished = true;
-    sem_post(&sems->wantToModifyMutex);
-    sem_post(&sems->gameStatusMutex);
+    mySemPost(&sems->wantToModifyMutex);
+    mySemPost(&sems->gameStatusMutex);
 }
 
 void getBoard(game_t * game, unsigned int seed){
@@ -99,9 +99,11 @@ int isGameEnded(game_t * game, int cantPlayers){
     return ret;
 }
 
+
+
 void move(game_t * game, sync_t * sems, int playerNum, int cantPlayers, unsigned char dirIdx){  
-    sem_wait(&sems->wantToModifyMutex);
-    sem_wait(&sems->gameStatusMutex);
+    mySemWait(&sems->wantToModifyMutex);
+    mySemWait(&sems->gameStatusMutex);
     int newPosValue;
     unsigned short width = game->width;
     player_t * playerToMove= &game->players[playerNum];
@@ -117,8 +119,8 @@ void move(game_t * game, sync_t * sems, int playerNum, int cantPlayers, unsigned
     }
     checkAndBlockPlayer(game, playerNum, 1);
 
-    sem_post(&sems->wantToModifyMutex);
-    sem_post(&sems->gameStatusMutex);
+    mySemPost(&sems->wantToModifyMutex);
+    mySemPost(&sems->gameStatusMutex);
 }
 
 void createSems(sync_t * sems){
@@ -160,13 +162,6 @@ void checkAndBlockPlayer(game_t * game, int playerNum, int firstTime){
 }
 
 
-void safeSem_init(sem_t* sem, int shared, int value){
-    if(sem_init(sem,shared,value) == -1){
-        perror("sem_init ");
-        exit(EXIT_FAILURE);
-    }
-}
-
 void closeAllNotNeededFD(int pipefds[][2], int cantPlayers, int playerNum){
     for(int i = 0; i < cantPlayers; i++){
         if(i != playerNum){
@@ -176,6 +171,7 @@ void closeAllNotNeededFD(int pipefds[][2], int cantPlayers, int playerNum){
     }
 }
 
+
 void safeClose(int fd){
     if(close(fd) == -1){
         perror("close");
@@ -184,9 +180,9 @@ void safeClose(int fd){
 }
 
 void closeSems(sync_t * sems){
-    sem_destroy(&sems->haveToPrint);
-    sem_destroy(&sems->finishedPrinting);
-    sem_destroy(&sems->wantToModifyMutex);
-    sem_destroy(&sems->gameStatusMutex);
-    sem_destroy(&sems->playersReadingMutex);
+    mySemDestroy(&sems->haveToPrint);
+    mySemDestroy(&sems->finishedPrinting);
+    mySemDestroy(&sems->wantToModifyMutex);
+    mySemDestroy(&sems->gameStatusMutex);
+    mySemDestroy(&sems->playersReadingMutex);
 }

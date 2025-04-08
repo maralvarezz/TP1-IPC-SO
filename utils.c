@@ -48,3 +48,32 @@ void closeSHM(char * name,void * dir,size_t size,char haveToUnlink){
         }
     }
 }
+
+
+
+void mySemWait(sem_t * sem){
+    if(sem_wait(sem) == -1){
+        perror("sem_wait ");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void mySemPost(sem_t * sem){
+    if(sem_post(sem) == -1){
+        perror("sem_post ");
+        exit(EXIT_FAILURE);
+    }
+}	
+
+void mySemDestroy(sem_t * sem){
+    if(sem_destroy(sem) == -1){
+        perror("sem_destroy ");
+        exit(EXIT_FAILURE);
+    }
+}	
+void safeSem_init(sem_t* sem, int shared, int value){
+    if(sem_init(sem,shared,value) == -1){
+        perror("sem_init ");
+        exit(EXIT_FAILURE);
+    }
+}

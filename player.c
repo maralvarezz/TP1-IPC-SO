@@ -51,13 +51,13 @@ void move(unsigned char * direction){
  void getMove(game_t * game, int width, int height, int playerNum, sync_t * sems, unsigned char * direction, int totalMoves){
     int max = 0;
     *direction = 15; 
-    sem_wait(&sems->wantToModifyMutex);
-    sem_post(&sems->wantToModifyMutex);
-    sem_wait(&sems->playersReadingMutex);
+    mySemWait(&sems->wantToModifyMutex);
+    mySemPost(&sems->wantToModifyMutex);
+    mySemWait(&sems->playersReadingMutex);
     if(++sems->playersReading == 1){
-        sem_wait(&sems->gameStatusMutex);
+        mySemWait(&sems->gameStatusMutex);
     }
-    sem_post(&sems->playersReadingMutex);
+    mySemPost(&sems->playersReadingMutex);
     unsigned short y = game->players[playerNum].posY;
     unsigned short x = game->players[playerNum].posX;
     if(totalMoves == game->players[playerNum].validMoves + game->players[playerNum].invalidMoves){
@@ -75,31 +75,31 @@ void move(unsigned char * direction){
         }
     }
     
-    sem_wait(&sems->playersReadingMutex);
+    mySemWait(&sems->playersReadingMutex);
     if(--sems->playersReading == 0){
-        sem_post(&sems->gameStatusMutex);
+        mySemPost(&sems->gameStatusMutex);
     }
-    sem_post(&sems->playersReadingMutex);
+    mySemPost(&sems->playersReadingMutex);
 }
 
 
 int isBlocked(game_t * game, int playerNum, sync_t * sems){
     int ret = 0;
-    sem_wait(&sems->wantToModifyMutex);
-    sem_post(&sems->wantToModifyMutex);
+    mySemWait(&sems->wantToModifyMutex);
+    mySemPost(&sems->wantToModifyMutex);
 
-    sem_wait(&sems->playersReadingMutex);
+    mySemWait(&sems->playersReadingMutex);
     if(++sems->playersReading == 1){
-        sem_wait(&sems->gameStatusMutex);
+        mySemWait(&sems->gameStatusMutex);
     }
-    sem_post(&sems->playersReadingMutex);
+    mySemPost(&sems->playersReadingMutex);
     if(game->players[playerNum].blocked || game->finished){
         ret = 1;
     }
-    sem_wait(&sems->playersReadingMutex);
+    mySemWait(&sems->playersReadingMutex);
     if(--sems->playersReading == 0){
-        sem_post(&sems->gameStatusMutex);
+        mySemPost(&sems->gameStatusMutex);
     }
-    sem_post(&sems->playersReadingMutex);
+    mySemPost(&sems->playersReadingMutex);
     return ret;
 }

@@ -29,7 +29,7 @@ int main(int argc, char *argv[]){
     game_t * game = (game_t*)createSHM(SHM_GAME_NAME, O_RDONLY |  O_CREAT, sizeof(game_t) + sizeof(int) * height * width, 0);   
     sync_t * sems = (sync_t*)createSHM(SHM_SYNC_NAME, O_RDWR |  O_CREAT, sizeof(sync_t), 0);    
     while(1){
-        sem_wait(&sems->haveToPrint);
+        mySemWait(&sems->haveToPrint);
         for(int i = 0; i < width * height; i++){
             
             if(i % width == 0){
@@ -55,10 +55,10 @@ int main(int argc, char *argv[]){
         printf("-------------------------------");
         printf("\n");
         if(game->finished){
-            sem_post(&sems->finishedPrinting); 
+            mySemPost(&sems->finishedPrinting); 
             break;
         }
-        sem_post(&sems->finishedPrinting); 
+        mySemPost(&sems->finishedPrinting); 
     }
     int winner = 0;
     int winnerArray[9];

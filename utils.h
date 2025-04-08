@@ -53,7 +53,12 @@ typedef struct {
     sem_t playersReadingMutex; 
     unsigned int playersReading; 
 } sync_t;
-    
+
+
+void mySemWait(sem_t * sem);
+void mySemPost(sem_t * sem);
+void mySemDestroy(sem_t * sem);
+void safeSem_init(sem_t* sem, int shared, int value);
 
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate);
 void closeSHM(char * name,void * dir,size_t size,char haveToUnlink);
