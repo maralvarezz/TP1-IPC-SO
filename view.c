@@ -16,7 +16,6 @@
 #define PLAYER9    "\x1b[38;2;144;238;144m"  // Verde claro
 #define RESET   "\x1b[0m" // Resetear color
 
-
 int main(int argc, char *argv[]){
     if(argc != 3){ 
         perror("argumentos incorrectos");
@@ -47,7 +46,6 @@ int main(int argc, char *argv[]){
             
         }
         printf("\n");
-
         printf("\x1b[1mPuntajes:   Score / ValidMoves  / InvalidMoves  / Blocked\x1b[0m\n"); 
         for(int i = 0; i < game->cantPlayers; i++){
             printf("%sJugador %d %s: %5d /\t %5d  /\t %5d  / %s\n", colors[i], i, RESET, game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves,game->players[i].blocked?"Yes":"No");
@@ -63,30 +61,31 @@ int main(int argc, char *argv[]){
     int winner = 0;
     int winnerArray[9];
     int cantWinners = 0;
-    for (int i = 1; i < game->cantPlayers; i++) {
-        if (game->players[i].score > game->players[winner].score ||
-        (game->players[i].score == game->players[winner].score &&
-         game->players[i].validMoves < game->players[winner].validMoves) ||
-        (game->players[i].score == game->players[winner].score &&
-         game->players[i].validMoves == game->players[winner].validMoves &&
-         game->players[i].invalidMoves < game->players[winner].invalidMoves)) {
-         winner = i;
-        }else if(game->players[i].score == game->players[winner].score &&
-         game->players[i].validMoves == game->players[winner].validMoves &&
-         game->players[i].invalidMoves == game->players[winner].invalidMoves){
+    for (int i = 0; i < game->cantPlayers; i++) {
+        if (i == 0 || 
+            game->players[i].score > game->players[winner].score || 
+            (game->players[i].score == game->players[winner].score &&
+             game->players[i].validMoves < game->players[winner].validMoves) ||
+            (game->players[i].score == game->players[winner].score &&
+             game->players[i].validMoves == game->players[winner].validMoves &&
+             game->players[i].invalidMoves < game->players[winner].invalidMoves)) {
+            winner = i;
+            cantWinners = 0;
+            winnerArray[0] = winner;
+        } else if (game->players[i].score == game->players[winner].score &&
+                   game->players[i].validMoves == game->players[winner].validMoves &&
+                   game->players[i].invalidMoves == game->players[winner].invalidMoves) {
             winnerArray[++cantWinners] = i;
         }
     }
-    winnerArray[0] = winner;
-    if(cantWinners > 0){
+    if (cantWinners > 0) {
         printf("\x1b[1mEmpate entre los jugadores:\x1b[0m\n");
-        for(int i = 0; i <= cantWinners; i++){
-            printf("%sJugador %d%s\n",colors[winnerArray[i]], winnerArray[i], RESET);
+        for (int i = 0; i <= cantWinners; i++) {
+            printf("%sJugador %d%s\n", colors[winnerArray[i]], winnerArray[i], RESET);
         }
-    }else{
-        printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n",colors[winner], winner, RESET);
+    } else {
+        printf("\x1b[1mGanador:\x1b[0m %sJugador %d%s\n", colors[winner], winner , RESET);
     }
-    
     closeSHM(SHM_GAME_NAME, (void *)game, sizeof(game_t) + sizeof(int)* width * height, 0);
     closeSHM(SHM_SYNC_NAME, (void *)sems, sizeof(sync_t), 0);
     return 0;

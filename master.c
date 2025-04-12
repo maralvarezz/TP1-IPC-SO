@@ -13,7 +13,6 @@ int main(int argc, char *argv[]){
     unsigned int timeout = 10;
     unsigned int seed = time(NULL);
     int cantPlayers = 0;
-
     while ((option = getopt(argc, argv, "w:h:d:t:s:v:p:")) != -1) {
         switch (option) {
             case 'w':
@@ -84,18 +83,15 @@ int main(int argc, char *argv[]){
                 exit(1);
         }
     }
-
     if(cantPlayers < 1){
         perror("Debe haber minimo un jugador");
         exit(1);
     }
-    
     game_t * game = (game_t *) createSHM(SHM_GAME_NAME, O_RDWR |  O_CREAT, sizeof(game_t) + sizeof(int) * width * height, 1);
     sync_t * sems = (sync_t *) createSHM(SHM_SYNC_NAME, O_RDWR |  O_CREAT, sizeof(sync_t), 1);
     createSems(sems);
     setGame(game, cantPlayers, width, height);
     getBoard(game, seed);
-    
     char * argv2[4] = {0};
     argv2[3] = NULL;
     int viewRet;
@@ -106,10 +102,8 @@ int main(int argc, char *argv[]){
     sprintf(argvWidth, "%d", width);
     argv2[1] = argvWidth;
     argv2[2] = argvHeight;
-
     printf(CLEAR);
     printf("width = %d\nheight = %d\ndelay = %dms\ntimeout = %ds\nseed=%d\nview = %s\n", width, height, delay, timeout, seed, view != NULL?view : " - ");
-
     if(view != NULL){
         if (access(view, X_OK) == 0) {
             viewPID = fork();
@@ -125,10 +119,8 @@ int main(int argc, char *argv[]){
             view=NULL;
         }
     }
-
     int pipefds[cantPlayers][2];
     initializePlayers(game, pipefds, cantPlayers); 
-    
     for(int i = 0; i < cantPlayers; i++){ 
         pid_t childPID = fork();
         if(childPID == -1){
@@ -145,19 +137,17 @@ int main(int argc, char *argv[]){
             game->players[i].pid = childPID;
         }
     }
-
-    int playersReturns[cantPlayers];
+    
     fd_set readFDS, masterFDS;
     FD_ZERO(&readFDS); 
-
     for(int i = 0; i < cantPlayers; i++) {
         safeClose(pipefds[i][1]);
         FD_SET(pipefds[i][0], &readFDS);
     }
-
     masterFDS = readFDS; 
     struct timeval timeoutForSelect;
     char finished = 0;
+    time_t lastValidMoveTime = time(NULL);
     while(!finished){
         readFDS = masterFDS; 
         timeoutForSelect.tv_sec = timeout;
@@ -174,7 +164,7 @@ int main(int argc, char *argv[]){
                 mySemWait(&sems->finishedPrinting);
             }
         }else{
-            if((makeMove(game, sems, &readFDS, &masterFDS, pipefds, cantPlayers, &finished) == 1 ) && view != NULL){
+            if(makeMove(game, sems, &readFDS, &masterFDS, pipefds, cantPlayers, &finished, &lastValidMoveTime,timeout) && view != NULL){
                 mySemPost(&sems->haveToPrint);
                 mySemWait(&sems->finishedPrinting);
                 usleep(delay * 1000);
@@ -184,18 +174,18 @@ int main(int argc, char *argv[]){
             }
         }
     }
-
     if(view != NULL){
         waitpid(viewPID, &viewRet, 0);
         printf("El view (%s) devolvio el valor %d\n", view ,viewRet);
     }
-    
+
+    int playersReturns[cantPlayers];
+
     for(int i=0; i < cantPlayers; i++){
         safeClose(pipefds[i][0]);
         waitpid(game->players[i].pid, &playersReturns[i], 0);
         printf("El jugador %d (%s) retorno el valor %d con puntaje %d / %d / %d \n", i, game->players[i].playerName, playersReturns[i], game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves);
     }
-    
     closeSems(sems);
     closeSHM(SHM_GAME_NAME, (void *)game, sizeof(game_t) + sizeof(int) * width * height, 1);
     closeSHM(SHM_SYNC_NAME, (void *)sems, sizeof(sync_t), 1);

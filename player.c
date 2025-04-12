@@ -7,7 +7,6 @@ void move(unsigned char * direction);
 void getMove(game_t * game, int width, int height, int playerNum, sync_t * sems, unsigned char * direction, int totalMoves);
 int isBlocked(game_t * game, int playerNum, sync_t * sems);
 
-
 int main(int argc, char *argv[]){ 
     if(argc != 3){ 
         perror("argumentos incorrectos");
@@ -15,11 +14,9 @@ int main(int argc, char *argv[]){
     }
     int width = atoi(argv[1]);
     int height = atoi(argv[2]);
-
     game_t * game = (game_t*)createSHM(SHM_GAME_NAME, O_RDONLY |  O_CREAT, sizeof(game_t) + sizeof(int) * height * width, 0);
     sync_t *sems = (sync_t*)createSHM(SHM_SYNC_NAME, O_RDWR |  O_CREAT, sizeof(sync_t), 0);
     int totalMoves = 0;
-    
     pid_t pid = getpid();
     int playerNum;
     for(int i = 0; i < game->cantPlayers; i++){
@@ -28,9 +25,9 @@ int main(int argc, char *argv[]){
             break;
         }
     }
-    unsigned char direction;
+    unsigned char direction=0;
     while(!isBlocked(game, playerNum, sems)){
-        getMove(game, width, height, playerNum, sems, &direction, totalMoves);
+        //getMove(game, width, height, playerNum, sems, &direction, totalMoves);
         if(direction != 15){
             move(&direction);
             totalMoves++;
@@ -74,14 +71,12 @@ void move(unsigned char * direction){
             }
         }
     }
-    
     mySemWait(&sems->playersReadingMutex);
     if(--sems->playersReading == 0){
         mySemPost(&sems->gameStatusMutex);
     }
     mySemPost(&sems->playersReadingMutex);
 }
-
 
 int isBlocked(game_t * game, int playerNum, sync_t * sems){
     int ret = 0;

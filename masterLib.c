@@ -60,29 +60,37 @@ void initializePlayers(game_t * game, int pipefds[][2], int cantPlayers){
     setPlayersPosition(game);
 }
 
-int makeMove(game_t * game, sync_t * sems, fd_set * readFDS, fd_set * masterFDS, int pipefds[][2], int cantPlayers, char * finished){ 
+int makeMove(game_t * game, sync_t * sems, fd_set * readFDS, fd_set * masterFDS, int pipefds[][2], int cantPlayers, char * finished, time_t * lastValidMoveTime, int  timeout ){ 
     static int playerTurn = 0;
     unsigned char dir;
     int toRet = 1;
-    for(int i = 0; i < cantPlayers; i++){
-        int current = (playerTurn + i) % cantPlayers;
-        if(!game->players[current].blocked && FD_ISSET(pipefds[current][0], readFDS)){
-            int bytesRead = read(pipefds[current][0], &dir, sizeof(unsigned char));
-            if (bytesRead < 0) {
-                perror("read");
-                exit(EXIT_FAILURE);
-            }else if(bytesRead > 0){
-                move(game, sems, current, cantPlayers, dir);
-                playerTurn = (current + 1) % cantPlayers;
-                break;
-            }else{
-                FD_CLR(pipefds[current][0], masterFDS);
-                game->players[current].blocked = true;
-                toRet = 0;
+    int timeoutFlag = 0;
+    if(time(NULL) - *lastValidMoveTime < timeout){
+        for(int i = 0; i < cantPlayers; i++){
+            int current = (playerTurn + i) % cantPlayers;
+            if(!game->players[current].blocked && FD_ISSET(pipefds[current][0], readFDS)){
+                int bytesRead = read(pipefds[current][0], &dir, sizeof(unsigned char));
+                if (bytesRead < 0) {
+                    perror("read");
+                    exit(EXIT_FAILURE);
+                }else if(bytesRead > 0){
+                   if(move(game, sems, current, cantPlayers, dir)==1){
+                        *lastValidMoveTime = time(NULL);
+                    }
+                    playerTurn = (current + 1) % cantPlayers;
+                    break;
+                }else{
+                    FD_CLR(pipefds[current][0], masterFDS);
+                    game->players[current].blocked = true;
+                    toRet = 0;
+                }
             }
         }
     }
-    if(isGameEnded(game, cantPlayers)){
+    else{
+        timeoutFlag++;
+    }
+    if(isGameEnded(game, cantPlayers) || timeoutFlag){
         game->finished = true;
         *finished = 1;
     }
@@ -101,26 +109,28 @@ int isGameEnded(game_t * game, int cantPlayers){
 
 
 
-void move(game_t * game, sync_t * sems, int playerNum, int cantPlayers, unsigned char dirIdx){  
+int move(game_t * game, sync_t * sems, int playerNum, int cantPlayers, unsigned char dirIdx){  
+    int toRet = 0;
     mySemWait(&sems->wantToModifyMutex);
     mySemWait(&sems->gameStatusMutex);
     int newPosValue;
     unsigned short width = game->width;
     player_t * playerToMove= &game->players[playerNum];
-    if ((newPosValue=game->board[width * (playerToMove->posY+dirs[dirIdx][1]) + dirs[dirIdx][0] + playerToMove->posX]) > 0){
-
+    int idx = width * (playerToMove->posY+dirs[dirIdx][1]) + dirs[dirIdx][0] + playerToMove->posX;
+    if ((idx >= 0 && idx < (width * game->height)) && ((newPosValue=game->board[idx]) > 0)){
         playerToMove->score += newPosValue;
         playerToMove->posX += dirs[dirIdx][0];
         playerToMove->posY += dirs[dirIdx][1];
         game->board[width * (playerToMove->posY) + playerToMove->posX] = -playerNum; 
         playerToMove->validMoves++;
+        toRet = 1;
     }else{
         playerToMove->invalidMoves++;
     }
     checkAndBlockPlayer(game, playerNum, 1);
-
     mySemPost(&sems->wantToModifyMutex);
     mySemPost(&sems->gameStatusMutex);
+    return toRet;
 }
 
 void createSems(sync_t * sems){
@@ -161,7 +171,6 @@ void checkAndBlockPlayer(game_t * game, int playerNum, int firstTime){
     }
 }
 
-
 void closeAllNotNeededFD(int pipefds[][2], int cantPlayers, int playerNum){
     for(int i = 0; i < cantPlayers; i++){
         if(i != playerNum){
@@ -170,7 +179,6 @@ void closeAllNotNeededFD(int pipefds[][2], int cantPlayers, int playerNum){
         }
     }
 }
-
 
 void safeClose(int fd){
     if(close(fd) == -1){
