@@ -27,7 +27,7 @@ int main(int argc, char *argv[]){
     }
     unsigned char direction=0;
     while(!isBlocked(game, playerNum, sems)){
-        //getMove(game, width, height, playerNum, sems, &direction, totalMoves);
+        getMove(game, width, height, playerNum, sems, &direction, totalMoves);
         if(direction != 15){
             move(&direction);
             totalMoves++;
