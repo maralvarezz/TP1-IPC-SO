@@ -138,6 +138,7 @@ int main(int argc, char *argv[]){
         }
     }
     
+    
     fd_set readFDS, masterFDS;
     FD_ZERO(&readFDS); 
     for(int i = 0; i < cantPlayers; i++) {
