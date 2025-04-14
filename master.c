@@ -103,7 +103,11 @@ int main(int argc, char *argv[]){
     argv2[1] = argvWidth;
     argv2[2] = argvHeight;
     printf(CLEAR);
-    printf("width = %d\nheight = %d\ndelay = %dms\ntimeout = %ds\nseed=%d\nview = %s\n", width, height, delay, timeout, seed, view != NULL?view : " - ");
+    printf("width = %d\nheight = %d\ndelay = %dms\ntimeout = %ds\nseed=%d\nview = %s\nplayers:\n", width, height, delay, timeout, seed, view != NULL?view : " - ");
+    for(int i = 0; i < cantPlayers; i++){
+        printf("Jugador %d: %s\n", i, argv[firtsPlayer + i]);
+    }
+    sleep(3);
     if(view != NULL){
         if (access(view, X_OK) == 0) {
             viewPID = fork();
@@ -122,30 +126,37 @@ int main(int argc, char *argv[]){
     int pipefds[cantPlayers][2];
     initializePlayers(game, pipefds, cantPlayers); 
     for(int i = 0; i < cantPlayers; i++){ 
-        pid_t childPID = fork();
-        if(childPID == -1){
-            perror("fork");
-            exit(EXIT_FAILURE);
-        }else if(childPID == 0){ 
-            closeAllNotNeededFD(pipefds, cantPlayers, i);
-            safeClose(pipefds[i][0]);
-            dup2(pipefds[i][1], STDOUT_FILENO);
-            safeClose(pipefds[i][1]);
-            argv2[0] = argv[firtsPlayer + i];
-            execve(argv[firtsPlayer + i], argv2, NULL);
-        }else{ 
-            game->players[i].pid = childPID;
+        if(access(argv[firtsPlayer + i], X_OK) == 0){
+            pid_t childPID = fork();
+            if(childPID == -1){
+                perror("fork");
+                exit(EXIT_FAILURE);
+            }else if(childPID == 0){
+                closeAllNotNeededFD(pipefds, cantPlayers, i);
+                safeClose(pipefds[i][0]);
+                dup2(pipefds[i][1], STDOUT_FILENO);
+                safeClose(pipefds[i][1]);
+                argv2[0] = argv[firtsPlayer + i];
+                execve(argv[firtsPlayer + i], argv2, NULL);
+            }else{ 
+                game->players[i].pid = childPID;
+            }
+        }else{
+            game->players[i].pid = 0;
         }
     }
     
     
     fd_set readFDS, masterFDS;
-    FD_ZERO(&readFDS); 
+    FD_ZERO(&masterFDS); 
     for(int i = 0; i < cantPlayers; i++) {
+        if(game->players[i].pid == 0){
+            safeClose(pipefds[i][0]);
+        }else{
+            FD_SET(pipefds[i][0], &masterFDS);
+        }
         safeClose(pipefds[i][1]);
-        FD_SET(pipefds[i][0], &readFDS);
     }
-    masterFDS = readFDS; 
     struct timeval timeoutForSelect;
     char finished = 0;
     time_t lastValidMoveTime = time(NULL);
@@ -183,9 +194,13 @@ int main(int argc, char *argv[]){
     int playersReturns[cantPlayers];
 
     for(int i=0; i < cantPlayers; i++){
-        safeClose(pipefds[i][0]);
-        waitpid(game->players[i].pid, &playersReturns[i], 0);
-        printf("El jugador %d (%s) retorno el valor %d con puntaje %d / %d / %d \n", i, game->players[i].playerName, playersReturns[i], game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves);
+        if(game->players[i].pid != 0){
+            safeClose(pipefds[i][0]);
+            waitpid(game->players[i].pid, &playersReturns[i], 0);
+        }else{
+            playersReturns[i] = 256;
+        }
+        printf("El jugador %d (%s) retorno el valor %3d con puntaje %5d / %5d / %5d \n", i, argv[firtsPlayer + i], playersReturns[i], game->players[i].score, game->players[i].validMoves, game->players[i].invalidMoves);
     }
     closeSems(sems);
     closeSHM(SHM_GAME_NAME, (void *)game, sizeof(game_t) + sizeof(int) * width * height, 1);
