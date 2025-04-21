@@ -159,8 +159,14 @@ int main(int argc, char *argv[]){
     }
     struct timeval timeoutForSelect;
     char finished = 0;
+    int haveToPrintFlag = 1;
     time_t lastValidMoveTime = time(NULL);
     while(!finished){
+        if(view != NULL && haveToPrintFlag){
+            mySemPost(&sems->haveToPrint);
+            mySemWait(&sems->finishedPrinting);
+            haveToPrintFlag = 0;
+        }
         readFDS = masterFDS; 
         timeoutForSelect.tv_sec = timeout;
         timeoutForSelect.tv_usec = 0;
@@ -171,14 +177,10 @@ int main(int argc, char *argv[]){
         }else if(status == 0){
             finishGame(game, sems);
             finished = 1;
-            if(view != NULL){
-                mySemPost(&sems->haveToPrint);
-                mySemWait(&sems->finishedPrinting);
-            }
+            
         }else{
             if(makeMove(game, sems, &readFDS, &masterFDS, pipefds, cantPlayers, &finished, &lastValidMoveTime,timeout) && view != NULL){
-                mySemPost(&sems->haveToPrint);
-                mySemWait(&sems->finishedPrinting);
+                haveToPrintFlag = 1;
                 usleep(delay * 1000);
             }
             if(finished){
@@ -187,6 +189,8 @@ int main(int argc, char *argv[]){
         }
     }
     if(view != NULL){
+        mySemPost(&sems->haveToPrint);
+        mySemWait(&sems->finishedPrinting);
         waitpid(viewPID, &viewRet, 0);
         printf("El view (%s) devolvio el valor %d\n", view ,viewRet);
     }

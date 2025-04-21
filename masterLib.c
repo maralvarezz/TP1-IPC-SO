@@ -29,6 +29,7 @@ void setPlayersPosition(game_t * game){
     if(game->cantPlayers == 1){
         game->players[0].posX = game->width / 2; 
         game->players[0].posY = game->height / 2;
+        game->board[game->players[0].posY * game->width + game->players[0].posX] = 0;
     } 
     else {
         for(int i = 0; i < game->cantPlayers; i++){

@@ -1,20 +1,31 @@
-# Variables
+
 CC = gcc
 CFLAGS = -std=gnu99 -Wall
 LDFLAGS = -lrt -lpthread -lm
 
-all: player view master
+OBJS_PLAYER = player.o utils.o strategy.o
+OBJS_DUMMY = player.o utils.o strategyDummy.o
+OBJS_MASTER = master.o utils.o masterLib.o
+OBJS_VIEW = view.o utils.o
 
-player: player.c utils.c
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) 
+all: player playerDummy master view
 
-master: master.c utils.c masterLib.c
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+player: $(OBJS_PLAYER)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-view: view.c utils.c
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS) 
+playerDummy: $(OBJS_DUMMY)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
+master: $(OBJS_MASTER)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+view: $(OBJS_VIEW)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+	
 clean:
-	rm -f player  view  master
+	rm -f *.o player playerDummy master view
 
 .PHONY: all clean

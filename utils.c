@@ -9,7 +9,6 @@ int dirs[][2]=   {{0,-1},
                     {-1,0},
                     {-1,-1}};
 
-
 void * createSHM(char * name,int flags, size_t size, char haveToTruncate){
     int fd = shm_open(name , flags , 0666);
     if(fd ==-1){
@@ -48,8 +47,6 @@ void closeSHM(char * name,void * dir,size_t size,char haveToUnlink){
         }
     }
 }
-
-
 
 void mySemWait(sem_t * sem){
     if(sem_wait(sem) == -1){

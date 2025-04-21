@@ -6,4 +6,4 @@ out.txt
 a.txt
 .lesshst
 trace_output.txt.*
-Intelplayer
+*.o
